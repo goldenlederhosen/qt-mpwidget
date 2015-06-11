@@ -49,10 +49,15 @@
 #define TIMEMYDBG(msg, ...)
 #endif
 
-// fail if we could not load the first few blocks of the file
-static const int max_time_for_preloading_file_ms = 6000;
-// before attempting to load a file in mplayer, load that many KBytes of it
-static const int preloading_file_KBytes = 16 * 1024;
+// before attempting to load a file in mplayer, see if we can access it
+// first access just starts the HD, mounts the directory, ...
+static const qint64 preloading_file_KBytes = 4;
+static const qint64 preloading_file_timeout_sec = 10;
+// second access tries to read a good chunk and tests the speed
+static const qint64 sustain_file_KBytes = 16 * 1024;
+// fail if we could not load that much of the file at this speed
+static const qint64 sustain_read_file_min_speed_kB_per_sec = 3000;
+
 // after a seek, we will get statuslines for a while which do not yet show the new position
 static const qint64 ignore_statusline_after_seek_ms = 400;
 // after a load, we might get statuslines for a while which do not yet show the new position
@@ -174,6 +179,8 @@ MpProcess::MpProcess(QObject *parent, MpMediaInfo *mip)
       m_current_aid(0),
       m_ssmanager(this, &predicate_screensaver_should_be_active, this)
 {
+    setObjectName(QLatin1String("MPProcess"));
+
     {
 #ifdef DEBUG_MPP_TIME
         QDateTime now = QDateTime::currentDateTimeUtc();
@@ -181,12 +188,13 @@ MpProcess::MpProcess(QObject *parent, MpMediaInfo *mip)
         MYDBG("MpProcess::MpProcess");
     }
 
+    m_proc->setObjectName(QLatin1String("MPProcess_proc"));
+
     qRegisterMetaType<MpState>();
     qRegisterMetaType<MpProcess::SeekMode>();
 
     resetValues();
 
-    setObjectName(QLatin1String("MPProcess"));
     m_cfg_acc_maxlines = 0;
     m_cfg_output_accumulator_ignore = NULL;
 
@@ -205,7 +213,7 @@ MpProcess::MpProcess(QObject *parent, MpMediaInfo *mip)
     XCONNECT(m_proc, SIGNAL(error(QProcess::ProcessError)), this, SLOT(slot_error_received(QProcess::ProcessError)), QUEUEDCONN);
 
     m_heartbeattimer.setInterval(heartbeat_interval_msec);
-    m_heartbeattimer.setObjectName(QLatin1String("QMPP heartbeat"));
+    m_heartbeattimer.setObjectName(QLatin1String("QMPP_heartbeat"));
     m_heartbeattimer.setSingleShot(false);
     XCONNECT(&m_heartbeattimer, SIGNAL(timeout()), this, SLOT(slot_heartbeat()), QUEUEDCONN);
     make_heartbeat_active_or_not();
@@ -353,7 +361,7 @@ void MpProcess::start_process(int xwinid, const QStringList &args)
 #ifdef DEBUG_MPP_TIME
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
-    MYDBG("%s", qPrintable(myargs.join(QLatin1String(" "))));
+    qDebug("%s %s", qPrintable(m_cfg_mplayerPath), qPrintable(myargs.join(QLatin1String(" "))));
 
     resetValues();
 
@@ -1188,18 +1196,34 @@ void MpProcess::slot_load(const QString &url)
         }
     }
 
-    // try to read the start of the file, fail if not possible
-    // this can have significant latency, so it needs to happen before the changeState()
-    const qint64 failafter_msec = max_time_for_preloading_file_ms;
-    const qint64 sleep_usec = failafter_msec * 10;
-    const off_t maxreadsize = preloading_file_KBytes * 1024;
+    if(preloading_file_KBytes > 0) {
+        const QString load_start_error = try_load_start_of_file(url
+                                         , preloading_file_KBytes * 1024
+                                         , 1000 * preloading_file_timeout_sec
+                                         , 10 * preloading_file_timeout_sec
+                                                               );
 
-    const QString load_start_error = try_load_start_of_file(url, maxreadsize, failafter_msec, sleep_usec);
+        if(!load_start_error.isEmpty()) {
+            QDateTime now = QDateTime::currentDateTimeUtc();
+            changeToErrorState(load_start_error, now);
+            return;
+        }
+    }
 
-    if(!load_start_error.isEmpty()) {
-        QDateTime now = QDateTime::currentDateTimeUtc();
-        changeToErrorState(load_start_error, now);
-        return;
+    QCoreApplication::processEvents();
+
+    if(sustain_file_KBytes > 0) {
+        const qint64 failafter_msec = (1000 * sustain_file_KBytes) / sustain_read_file_min_speed_kB_per_sec;
+
+        const qint64 sleep_usec = failafter_msec * 10;
+
+        const QString load_start_error = try_load_start_of_file(url, sustain_file_KBytes * 1024, failafter_msec, sleep_usec);
+
+        if(!load_start_error.isEmpty()) {
+            QDateTime now = QDateTime::currentDateTimeUtc();
+            changeToErrorState(load_start_error, now);
+            return;
+        }
     }
 
     QCoreApplication::processEvents();

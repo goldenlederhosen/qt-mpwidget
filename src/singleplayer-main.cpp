@@ -59,12 +59,25 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
+#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+
+    if(definitely_running_from_desktop()) {
+        qInstallMessageHandler(desktopMessageOutput);
+    }
+    else {
+        qInstallMessageHandler(commandlineMessageOutput);
+    }
+
+#else
+
     if(definitely_running_from_desktop()) {
         qInstallMsgHandler(desktopMessageOutput);
     }
     else {
         qInstallMsgHandler(commandlineMessageOutput);
     }
+
+#endif
 
     if(argc < 2) {
         usage();

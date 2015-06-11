@@ -24,11 +24,13 @@
 AsyncKillProcess_Private::AsyncKillProcess_Private(const pid_t &in_pid, char const *const in_kreason, char const *const in_context):
     QThread(NULL),
     m_pid(in_pid),
-    m_kreason(strdup(in_kreason)),
-    m_context(strdup(in_context)),
+    m_kreason(::strdup(in_kreason)),
+    m_context(::strdup(in_context)),
     m_tid(-1)
 {
     MYDBG("CONSTRUCT");
+
+    setObjectName(QLatin1String("AsyncKillProcess_Private_") + QString::number(m_pid));
 
     if(m_kreason == NULL) {
         qFatal("out of memory");

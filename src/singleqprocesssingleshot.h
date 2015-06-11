@@ -38,12 +38,14 @@ private:
     bool wait(int msecs);
 
 public:
-    explicit SingleQProcessSingleshot(QObject *parent):
+    explicit SingleQProcessSingleshot(QObject *parent, char const *const in_oname):
         QObject(parent)
         , prog(NULL)
         , started(false)
         , finished(false)
-        , m_success(false) {}
+        , m_success(false) {
+        setObjectName(QLatin1String(in_oname));
+    }
 
     virtual ~SingleQProcessSingleshot() {
         if(prog != NULL) {

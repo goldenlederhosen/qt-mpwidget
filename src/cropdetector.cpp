@@ -18,6 +18,11 @@ CropDetector::CropDetector(QObject *parent, QString in_mfn) :
     mfn(in_mfn),
     proc(this)
 {
+
+    QString fshort = mfn.right(20).simplified().replace(QLatin1Char(' '), QLatin1Char('_'));
+    setObjectName(QLatin1String("CropDetector_") + fshort);
+    proc.setObjectName(QLatin1String("CropDetector_QP_") + fshort);
+
     QString program = QLatin1String("videofile.info");
     QStringList args;
     args << QLatin1String("-crop");

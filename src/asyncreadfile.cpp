@@ -15,16 +15,18 @@
 #include "util.h"
 #include "asynckillproc.h"
 
-//#define DEBUG_CLF
+#define DEBUG_CLF
 
 #ifdef DEBUG_ALL
 #define DEBUG_CLF
 #endif
 
 #ifdef DEBUG_CLF
+#  define MYDBG(msg, ...)    qDebug("CLF " msg, ##__VA_ARGS__)
 #  define ASFMYDBG(msg, ...) fprintf(stderr, "CLF P  %s " msg "\n", qPrintable(m_ofn.right(20)), ##__VA_ARGS__)
 #  define CLDMYDBG(msg, ...) fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__)
 #else
+#  define MYDBG(msg, ...)
 #  define ASFMYDBG(msg, ...)
 #  define CLDMYDBG(msg, ...)
 #endif
@@ -465,6 +467,8 @@ AsyncReadFile::~AsyncReadFile()
 
 void async_slurp_file(const QString &url, QStringList &errors, QByteArray &contents, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
+    MYDBG("async_slurp_file: %s, fail after %lu msec", qPrintable(url), (unsigned long)wholetimeout_msec);
+
     AsyncReadFile ASF(url, true, -1);
 
     QElapsedTimer timer;
@@ -478,6 +482,7 @@ void async_slurp_file(const QString &url, QStringList &errors, QByteArray &conte
 
         if(timepassed_msec > wholetimeout_msec) {
             errors.append(QLatin1String("took too long"));
+            MYDBG("async_slurp_file: FAILURE %s", qPrintable(errors.join(QLatin1String("; "))));
             return;
         }
 
@@ -491,10 +496,19 @@ void async_slurp_file(const QString &url, QStringList &errors, QByteArray &conte
 
     }
 
+    if(errors.isEmpty()) {
+        MYDBG("async_slurp_file: success");
+    }
+    else {
+        MYDBG("async_slurp_file: FAILURE %s", qPrintable(errors.join(QLatin1String("; "))));
+    }
+
 }
 
 QString try_load_start_of_file(const QString &url, const off_t maxreadsize, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
+
+    MYDBG("try_load_start_of_file: %s, read first %lu bytes, fail after %lu msec", qPrintable(url), (unsigned long)maxreadsize, (unsigned long)wholetimeout_msec);
 
     QStringList errors;
 
@@ -511,7 +525,9 @@ QString try_load_start_of_file(const QString &url, const off_t maxreadsize, cons
 
         if(timepassed_msec > wholetimeout_msec) {
             errors.append(QLatin1String("took too long"));
-            return errors.join(QLatin1String("; "));
+            const QString ret = errors.join(QLatin1String("; "));
+            MYDBG("try_load_start_of_file: FAILURE %s", qPrintable(ret));
+            return ret;
         }
 
         if(!made_progress) {
@@ -524,6 +540,15 @@ QString try_load_start_of_file(const QString &url, const off_t maxreadsize, cons
 
     }
 
-    return errors.join(QLatin1String("; "));
+    const QString ret = errors.join(QLatin1String("; "));
+
+    if(ret.isEmpty()) {
+        MYDBG("try_load_start_of_file: success");
+    }
+    else {
+        MYDBG("try_load_start_of_file: FAILURE %s", qPrintable(ret));
+    }
+
+    return ret;
 
 }

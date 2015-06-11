@@ -33,6 +33,7 @@ ScreenSaverManager::ScreenSaverManager(QObject *parent, predicate_t func, void *
     m_screensaver_should_be_active(func),
     m_screensaver_should_be_active_payload(payload)
 {
+    setObjectName(QLatin1String("ScreenSaverManager"));
 }
 
 ScreenSaverManager::~ScreenSaverManager()

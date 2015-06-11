@@ -23,9 +23,10 @@
 
 static const int timeout_waitforstarted = 3000;
 
-SingleQProcess::SingleQProcess(QObject *parent) :
+SingleQProcess::SingleQProcess(QObject *parent, const QString &in_oname) :
     QObject(parent), proc(NULL)
 {
+    setObjectName(in_oname);
 }
 
 SingleQProcess::~SingleQProcess()
@@ -62,6 +63,7 @@ bool SingleQProcess::start(const QString &exe, const QStringList &args, QString 
     curr_exe = exe;
     curr_args = args;
     proc = new QProcess();
+    proc->setObjectName(objectName() + QLatin1String("_QP"));
     qRegisterMetaType<QProcess::ExitStatus>();
     XCONNECT(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(slot_child_has_finished(int, QProcess::ExitStatus)), QUEUEDCONN);
     XCONNECT(proc, SIGNAL(readyReadStandardOutput()), this, SLOT(slot_accumulate_all_out()), QUEUEDCONN);

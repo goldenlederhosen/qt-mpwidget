@@ -14,7 +14,6 @@
 #include "mpwidget.h"
 #include "cropdetector.h"
 #include "gui_overlayquit.h"
-#include "keepfocus.h"
 
 #define DEBUG_IV
 
@@ -149,7 +148,7 @@ void PlayerWindow::init_MP_object()
 
 PlayerWindow::PlayerWindow(bool in_fullscreen, const QStringList &in_mfns): QMainWindow()
 {
-    setObjectName(QLatin1String("SP"));
+    setObjectName(QLatin1String("PlayerWindow"));
     cd = NULL;
     MP = NULL;
 
@@ -179,7 +178,7 @@ PlayerWindow::PlayerWindow(bool in_fullscreen, const QStringList &in_mfns): QMai
     MP = NULL;
     init_MP_object();
     setCentralWidget(MP);
-    focus_should_go_to(MP);
+    set_focus_raise(MP);
     QTimer::singleShot(0, this, SLOT(slot_MP_start()));
 
 }
@@ -269,7 +268,7 @@ void PlayerWindow::MP_finished(bool success, const QString &errstr)
 
     MYDBG("queuing next movie");
 
-    focus_should_go_to(MP);
+    set_focus_raise(MP);
 
     activate_this_window();
 
@@ -336,11 +335,9 @@ void PlayerWindow::slot_MP_state_changed(MpState oldstate, MpState newstate)
 
 void PlayerWindow::MP_window_correct()
 {
-    MP->show();
-    MP->raise();
     MP->resize(this->size());
     MP->move(0, 0);
-    focus_should_go_to(MP);
+    set_focus_raise(MP);
 }
 
 void PlayerWindow::slot_cdDetected(bool success, QString msg, QString mfn)

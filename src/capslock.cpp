@@ -3,7 +3,15 @@
 
 #if defined Q_WS_WIN
 # include <windows.h>
+#elif defined Q_OS_WIN
+# include <windows.h>
 #elif defined Q_WS_X11
+# include <X11/XKBlib.h>
+# undef KeyPress
+# undef KeyRelease
+# undef FocusIn
+# undef FocusOut
+#elif defined Q_OS_LINUX
 # include <X11/XKBlib.h>
 # undef KeyPress
 # undef KeyRelease

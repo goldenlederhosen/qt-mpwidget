@@ -3,10 +3,10 @@
 #include <QDebug>
 #include <QApplication>
 #include <QProcess>
+#include <QWidget>
 
 #include "gui_overlayquit.h"
 #include "util.h"
-#include "keepfocus.h"
 
 QString dt_2_human(const QDateTime &lastseenon)
 {
@@ -287,6 +287,103 @@ bool definitely_running_from_desktop()
     }
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+
+void desktopMessageOutput(QtMsgType type, const QMessageLogContext &, const QString &qmsg)
+{
+    QByteArray bmsg = qmsg.toLocal8Bit();
+    const char *msg = bmsg.constData();
+
+    switch(type) {
+        case QtDebugMsg: {
+            fprintf(stderr, "Debug: %s\n", msg);
+        }
+        break;
+
+        case QtWarningMsg: {
+            fprintf(stderr, "Warning: %s\n", msg);
+        }
+        break;
+
+        case QtCriticalMsg: {
+            QWidget *mainw = QApplication::activeWindow();
+            QWidget *foc = QApplication::focusWidget();
+
+            if(mainw != NULL) {
+                QLatin1String format("Critical: %1");
+                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
+                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_crit", qmsg);
+                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
+                oq->set_ori_focus(foc);
+                oq->start_oq();
+            }
+
+            fprintf(stderr, "Critical: %s\n", msg);
+        }
+        break;
+
+        case QtFatalMsg: {
+            QWidget *mainw = QApplication::activeWindow();
+            QWidget *foc = QApplication::focusWidget();
+
+            if(mainw != NULL) {
+                QLatin1String format("Fatal: %1");
+                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
+                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_fatal", qmsg);
+                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
+                oq->set_ori_focus(foc);
+                oq->start_oq();
+            }
+
+            fprintf(stderr, "Fatal: %s\n", msg);
+            exit(1);
+        }
+        break;
+
+        default: {
+            fprintf(stderr, "Unknown output type: %s\n", msg);
+        }
+        break;
+    }
+}
+void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &, const QString &qmsg)
+{
+    QByteArray bmsg = qmsg.toLocal8Bit();
+    const char *msg = bmsg.constData();
+
+    switch(type) {
+        case QtDebugMsg: {
+            fprintf(stderr, "Debug: %s\n", msg);
+        }
+        break;
+
+        case QtWarningMsg: {
+            fprintf(stderr, "Warni: %s\n", msg);
+        }
+        break;
+
+        case QtCriticalMsg: {
+            fprintf(stderr, "Criti: %s\n", msg);
+        }
+        break;
+
+        case QtFatalMsg: {
+            fprintf(stderr, "Fatal: %s\n", msg);
+            exit(1);
+        }
+        break;
+
+        default: {
+            fprintf(stderr, "Unknown output type: %s\n", msg);
+        }
+        break;
+    }
+}
+
+
+#else
+
+
 void desktopMessageOutput(QtMsgType type, const char *msg)
 {
     //const bool isPE=( strstr(msg,"PROGRAMMERERROR")!=NULL );
@@ -304,14 +401,13 @@ void desktopMessageOutput(QtMsgType type, const char *msg)
 
         case QtCriticalMsg: {
             QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = focus_should_currently_be_at();
+            QWidget *foc = QApplication::focusWidget();
 
             if(mainw != NULL) {
                 QLatin1String format("Critical: %1");
                 QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, qmsg);
+                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_crit", qmsg);
                 XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->setObjectName(QLatin1String("OQ crit"));
                 oq->set_ori_focus(foc);
                 oq->start_oq();
             }
@@ -322,14 +418,13 @@ void desktopMessageOutput(QtMsgType type, const char *msg)
 
         case QtFatalMsg: {
             QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = focus_should_currently_be_at();
+            QWidget *foc = QApplication::focusWidget();
 
             if(mainw != NULL) {
                 QLatin1String format("Fatal: %1");
                 QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, qmsg);
+                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_fatal", qmsg);
                 XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->setObjectName(QLatin1String("OQ fatal"));
                 oq->set_ori_focus(foc);
                 oq->start_oq();
             }
@@ -377,6 +472,8 @@ void commandlineMessageOutput(QtMsgType type, const char *msg)
         break;
     }
 }
+
+#endif // QT4
 
 static bool looks_like_vdpau()
 {
@@ -528,3 +625,11 @@ QString get_MP_VO()
     return QLatin1String("x11");
 
 }
+
+void set_focus_raise(QWidget *w)
+{
+    w->show();
+    w->raise();
+    w->setFocus(Qt::OtherFocusReason);
+}
+

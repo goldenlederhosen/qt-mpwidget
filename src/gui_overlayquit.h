@@ -15,21 +15,23 @@ class OverlayQuit: public QWidget {
 
 private:
 
-    QWidget *quit_button;
-    QWidget *body;
+    QWidget *m_quit_button;
+    QWidget *m_body;
     QWidget *m_ori_focus;
     bool evfilter_body;
 
 public:
 
-    explicit OverlayQuit(QWidget *parent, QWidget *in_body);
-    explicit OverlayQuit(QWidget *parent, const QString &text);
+    explicit OverlayQuit(QWidget *parent, char const *const in_oname, QWidget *in_body);
+    explicit OverlayQuit(QWidget *parent, char const *const in_oname, const QString &text);
     void start_oq();
     void set_ori_focus(QWidget *w);
 
 protected:
 
     virtual bool eventFilter(QObject *object, QEvent *event);
+    virtual void focusOutEvent(QFocusEvent *event);
+    virtual void focusInEvent(QFocusEvent *event);
 
 signals:
 

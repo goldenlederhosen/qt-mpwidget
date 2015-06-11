@@ -44,7 +44,8 @@ bool SingleQProcessSingleshot::start(const QString &exe, const QStringList &args
     }
 
     started = true;
-    prog = new SingleQProcess(this);
+    const QString myoname = objectName();
+    prog = new SingleQProcess(this, myoname + QLatin1String("_SQP"));
     XCONNECT(prog, SIGNAL(sig_finished(bool, QString, QString, QString, QStringList)), this, SLOT(slot_prog_has_finished(bool, QString, QString, QString, QStringList)), QUEUEDCONN);
     bool ret = prog->start(exe, args, error);
     return ret;

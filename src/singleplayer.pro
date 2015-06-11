@@ -21,8 +21,6 @@ HEADERS       = \
     dbus.h \
     xsetscreensaver.h \
     vregexp.h \
-    keepfocus.h \
-    focusmanager.h \
     asynckillproc.h \
     asyncreadfile.h \
     asyncreadfile_child.h \
@@ -44,14 +42,13 @@ SOURCES       = \
     capslock.cpp \
     dbus.cpp \
     xsetscreensaver.cpp \
-    keepfocus.cpp \
-    focusmanager.cpp \
     asynckillproc.cpp \
     asyncreadfile.cpp \
     asyncreadfile_child.cpp \
     asynckillproc_p.cpp
 
 QT+=svg dbus
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets 
 DEFINES += QT_NO_CAST_FROM_ASCII QT_USE_QSTRINGBUILDER QT_USE_FAST_CONCATENATION QT_USE_FAST_OPERATOR_PLUS QT_NO_CAST_FROM_BYTEARRAY
 LIBS+=-lX11
 

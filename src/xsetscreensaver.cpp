@@ -13,7 +13,10 @@
 #define MYDBG(msg, ...)
 #endif
 
-#ifdef Q_WS_X11
+#if defined Q_WS_X11
+# include <X11/Xlib.h>
+# include <X11/X.h>
+#elif defined Q_OS_LINUX
 # include <X11/Xlib.h>
 # include <X11/X.h>
 #else

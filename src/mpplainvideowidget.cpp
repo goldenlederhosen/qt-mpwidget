@@ -10,6 +10,6 @@ MpPlainVideoWidget::MpPlainVideoWidget(QWidget *parent): QWidget(parent)
     setAttribute(Qt::WA_NativeWindow);
 
     setMouseTracking(true);
-    setObjectName(QLatin1String("QMPWidget videotarget"));
+    setObjectName(QLatin1String("QMPWidget_videotarget"));
 }
 

@@ -64,7 +64,7 @@ static inline bool string_starts_with_remove(QString &str, char const *const beg
 
 static inline bool string_starts_with_remove(QString &str, char beg)
 {
-    QChar other = QChar::fromAscii(beg);
+    QChar other = QChar::fromLatin1(beg);
 
     if(str[0] == other) {
         str.remove(0, 1);
@@ -178,10 +178,19 @@ inline QString err_xbin_2_local_qstring(const QByteArray &vblob)
 }
 
 bool definitely_running_from_desktop();
+
+#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+void desktopMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
+void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
+#else
 void desktopMessageOutput(QtMsgType type, const char *msg);
 void commandlineMessageOutput(QtMsgType type, const char *msg);
+#endif
 
 QString get_MP_VO();
+
+class QWidget;
+void set_focus_raise(QWidget *w);
 
 
 

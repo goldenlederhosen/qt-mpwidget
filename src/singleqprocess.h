@@ -19,7 +19,7 @@ private:
     QStringList curr_args;
     void close();
 public:
-    explicit SingleQProcess(QObject *parent);
+    explicit SingleQProcess(QObject *parent, const QString &in_oname);
     virtual ~SingleQProcess();
 
     bool start(const QString &exe, const QStringList &args, QString &error);

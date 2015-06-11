@@ -9,7 +9,6 @@ QT_BEGIN_NAMESPACE
 class QString;
 class QProcess;
 class QLabel;
-class QWebView;
 class QUrl;
 class QPushButton;
 QT_END_NAMESPACE

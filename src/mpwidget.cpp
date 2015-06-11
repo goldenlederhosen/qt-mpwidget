@@ -127,16 +127,16 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     : QWidget(parent)
     , m_widget(NULL)
 {
+    setObjectName(QLatin1String("QMPWidget"));
+
     m_fullscreen = fullscreen;
     m_stay_dead = false;
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    setObjectName(QLatin1String("QMPWidget"));
-
     m_background = new QWidget(this);
     m_background->setAutoFillBackground(true);
-    m_background->setObjectName(QLatin1String("QMPWidget background"));
+    m_background->setObjectName(QLatin1String("QMPWidget_background"));
 
     m_widget = new MpPlainVideoWidget(this);
     // do I need these?
@@ -154,6 +154,7 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     init_process();
 
     m_seek_slider = new QSlider(Qt::Horizontal, this);
+    m_seek_slider->setObjectName(QLatin1String("QMPWidget_seekslider"));
     m_seek_slider->setTracking(false);
     m_seek_slider->setCursor(Qt::ArrowCursor);
     m_seek_slider->setPageStep(60);
@@ -171,6 +172,7 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     m_seek_slider->setStyle(new MySliderStyle(m_seek_slider->style()));
 
     m_sliderlabel = new QLabel(this);
+    m_seek_slider->setObjectName(QLatin1String("QMPWidget_seeksliderlabel"));
     m_sliderlabel->setAutoFillBackground(true);
     {
         QPalette p = m_sliderlabel->palette();
@@ -192,14 +194,15 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     slot_hidemouse();
 
     m_hourglass = new QLabel(this);
+    m_hourglass->setObjectName(QLatin1String("QMPWidget_hourglass"));
     m_hourglass->move(0, 0);
     m_hourglass->setAutoFillBackground(true);
     m_hourglass->setFocusPolicy(Qt::NoFocus);
-    m_hourglass->setObjectName(QLatin1String("QMPWidget hourglass"));
     m_hourglass->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
     m_hourglass->setScaledContents(false);
 
     m_hourglass_render = new QSvgRenderer(QLatin1String(":/application/Hourglass_2.svg"), this);
+    m_hourglass_render->setObjectName(QLatin1String("QMPWidget_hourglassrender"));
 
     if(!m_hourglass_render->isValid()) {
         PROGRAMMERERROR("could not load hourglass SVG");
@@ -227,8 +230,7 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
                                );
 
     // parent of ui object, parent of body and quit button
-    m_helpscreen = new OverlayQuit(this, syntaxhelp);
-    m_helpscreen->setObjectName(QLatin1String("OQ mpwhelp"));
+    m_helpscreen = new OverlayQuit(this, "OQ_mpwhelp", syntaxhelp);
     m_helpscreen->set_ori_focus(this);
 
 }
