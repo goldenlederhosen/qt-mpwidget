@@ -2,7 +2,7 @@
 
 A Qt widget (QWidget based, not Qt Quick / QML) that implements a simple videoplayer based on mplayer's slave mode. Comes with example application "singleplayer" which plays one video file.
 
-This is a fork of jgehring's qmpwidget project. I'm using it for a home media center app under Fedora 19+, qt 4.8+, mplayer SVN-r36171-4.8.1.
+This is a fork of jgehring's qmpwidget project. I'm using it for a home media center app under Fedora 19+, qt 4.8+ and 5+, mplayer SVN-r36171-4.8.1.
 
 Features:
 
