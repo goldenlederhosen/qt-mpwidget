@@ -15,7 +15,7 @@
 #include "util.h"
 #include "asynckillproc.h"
 
-#define DEBUG_CLF
+//#define DEBUG_CLF
 
 #ifdef DEBUG_ALL
 #define DEBUG_CLF

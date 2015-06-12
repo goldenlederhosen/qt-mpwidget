@@ -43,7 +43,7 @@
 #  define STATICDBG(msg, ...)
 #endif
 
-#ifdef DEBUG_MPP
+#ifdef DEBUG_MPP_TIME
 #define TIMEMYDBG(msg, ...) MYDBG(msg, ##__VA_ARGS__)
 #else
 #define TIMEMYDBG(msg, ...)
@@ -2215,6 +2215,13 @@ int MpProcess::find_next_alang_not_in(const QSet<QString> &forbidden) const
     int next = cycle_alang(haid, m_current_aid);
 
     if(forbidden.isEmpty()) {
+#ifdef DEBUG_MPP_TIME
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+#endif
+        MYDBG("going from AID %d (%s) to %d (%s)"
+              , m_current_aid, qPrintable(m_mediaInfo->aid_2_alang(m_current_aid))
+              , next, qPrintable(m_mediaInfo->aid_2_alang(next))
+             );
         return next;
     }
 
@@ -2235,9 +2242,21 @@ int MpProcess::find_next_alang_not_in(const QSet<QString> &forbidden) const
 #ifdef DEBUG_MPP_TIME
     const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
-    MYDBG("can not go anywhere from AID %d (%s): all are in %s", m_current_aid, qPrintable(m_mediaInfo->aid_2_alang(m_current_aid)), qPrintable(QStringList(forbidden.toList()).join(QLatin1String(","))));
-    return -11;
 
+    const QString current_lang = m_mediaInfo->aid_2_alang(m_current_aid);
+
+    if(!forbidden.contains(current_lang) && m_current_aid != (-2)) {
+        MYDBG("can not go anywhere from AID %d (%s): all others in %s", m_current_aid, qPrintable(m_mediaInfo->aid_2_alang(m_current_aid)), qPrintable(QStringList(forbidden.toList()).join(QLatin1String(","))));
+        return -11;
+    }
+    else {
+        next = cycle_alang(haid, m_current_aid);
+        MYDBG("going from AID %d (%s) to %d (%s). "
+              , m_current_aid, qPrintable(m_mediaInfo->aid_2_alang(m_current_aid))
+              , next, qPrintable(m_mediaInfo->aid_2_alang(next))
+             );
+        return next;
+    }
 }
 
 bool MpProcess::screensaver_should_be_active() const

@@ -772,7 +772,7 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         break;
 
         case Qt::Key_Home: {
-            xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, 00));
+            xinvokeMethod(m_process, "slot_abs_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, 00));
         }
         break;
 
