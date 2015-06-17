@@ -78,6 +78,8 @@ void ScreenSaverManager::enable()
 
     xsetscreensaver_enable();
 
+    // FIXME: org.xfce.PowerManager ?
+
     if(m_pwcookie_valid) {
         QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.PowerManagement"),
                          QLatin1String("/org/freedesktop/PowerManagement"),

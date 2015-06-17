@@ -26,9 +26,12 @@ private:
     MpWidget *MP;
     CropDetector *cd;
     QString currently_playing_mfn;
-
+    QStringList falangs;
+    QStringList palangs;
+    QStringList pslangs;
+    bool might_get_remote_files;
 public:
-    PlayerWindow(bool in_fullscreen, const QStringList &in_mfns);
+    PlayerWindow(bool in_fullscreen, const QStringList &in_mfns, const QStringList &in_falangs, const QStringList &in_palangs, const QStringList &in_pslangs);
     ~PlayerWindow();
 
 protected:

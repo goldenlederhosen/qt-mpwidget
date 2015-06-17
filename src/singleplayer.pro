@@ -1,3 +1,5 @@
+CONFIG += c++11
+
 QMAKE_CXXFLAGS_DEBUG += -O0 -DCAUTION
 QMAKE_LFLAGS_DEBUG += -O0  -DCAUTION
 QMAKE_CXXFLAGS += -std=c++0x -W -Wall -Woverloaded-virtual
@@ -24,7 +26,13 @@ HEADERS       = \
     asynckillproc.h \
     asyncreadfile.h \
     asyncreadfile_child.h \
-    asynckillproc_p.h
+    asynckillproc_p.h \
+    system.h \
+    safe_signals.h \
+    config.h \
+    encoding.h \
+    remote_local.h \
+    fstypemagics.h
 SOURCES       = \
     mainwindow.cpp \
     util.cpp \
@@ -45,7 +53,11 @@ SOURCES       = \
     asynckillproc.cpp \
     asyncreadfile.cpp \
     asyncreadfile_child.cpp \
-    asynckillproc_p.cpp
+    asynckillproc_p.cpp \
+    system.cpp \
+    config.cpp \
+    encoding.cpp \
+    remote_local.cpp
 
 QT+=svg dbus
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets 

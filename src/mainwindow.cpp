@@ -14,6 +14,10 @@
 #include "mpwidget.h"
 #include "cropdetector.h"
 #include "gui_overlayquit.h"
+#include "safe_signals.h"
+#include "config.h"
+#include "system.h"
+#include "remote_local.h"
 
 #define DEBUG_IV
 
@@ -34,6 +38,9 @@ const double MIN_LASTPOS_DIFF_ABS_SECONDS = 300.;
 // of the total length before the end
 // 4.5% = 4 minutes on a 90 minutes movie
 const double MIN_LASTPOS_DIFF_REL_PERCENT = 4.5;
+
+static const unsigned CACHE_KBYTES_FOR_LOCAL   =  8192;
+static const unsigned CACHE_KBYTES_FOR_REMOTE  = 32768;
 
 void PlayerWindow::slot_MP_died(QObject *dead)
 {
@@ -70,70 +77,50 @@ void PlayerWindow::init_MP_object()
     MP_args_default += QLatin1String("-framedrop");
 
     MP_args_default += QLatin1String("-cache");
-    MP_args_default += QLatin1String("16384"); // kBytes
+    MP_args_default += QString::number(might_get_remote_files ? CACHE_KBYTES_FOR_REMOTE : CACHE_KBYTES_FOR_LOCAL);
     MP_args_default += QLatin1String("-cache-min");
-    MP_args_default += QLatin1String("5");
+    MP_args_default += QLatin1String("20");
 
     MP_args_default += QLatin1String("-mc");
     MP_args_default += QLatin1String("3");
 
     QStringList MP_args = MP_args_default;
 
-    const QByteArray MP_OPTS_APPEND = qgetenv("MP_OPTS_APPEND");
-    const QByteArray MP_OPTS_OVERRI = qgetenv("MP_OPTS_OVERRIDE");
+    const QString MP_OPTS_APPEND_s = get_MP_OPTS_APPEND();
+    const QString MP_OPTS_OVERRI_s = get_MP_OPTS_OVERRIDE();
 
-    if(!MP_OPTS_OVERRI.isEmpty()) {
-        MP_args = doSplitArgs(QString::fromLocal8Bit(MP_OPTS_APPEND.constData()));
+    if(!MP_OPTS_OVERRI_s.isEmpty() && !MP_OPTS_APPEND_s.isEmpty()) {
+        qFatal("both MP_OPTS_APPEND and MP_OPTS_OVERRIDE are set. Please choose one");
     }
 
-    if(!MP_OPTS_APPEND.isEmpty()) {
-        QStringList l = doSplitArgs(QString::fromLocal8Bit(MP_OPTS_APPEND.constData()));
+    if(!MP_OPTS_OVERRI_s.isEmpty()) {
+        const QStringList l = doSplitArgs(MP_OPTS_OVERRI_s);
+        MP_args = l;
+    }
+
+    if(!MP_OPTS_APPEND_s.isEmpty()) {
+        const QStringList l = doSplitArgs(MP_OPTS_APPEND_s);
         MP_args += l;
     }
 
     MP->setMplayerArgs(MP_args);
 
-    MP->setVideoOutput(get_MP_VO());
+    MP->setVideoOutput(compute_MP_VO());
 
-    const QString gs = QLatin1String("ger");
-    const QString es = QLatin1String("eng");
-
-    {
-        QStringList preferred_alangs;
-
-        const QByteArray PALANGS = qgetenv("MP_PALANGS");
-
-        if(!PALANGS.isEmpty()) {
-            QString sPALANGS = QString::fromLocal8Bit(PALANGS.constData());
-            preferred_alangs = sPALANGS.split(QLatin1Char(','), QString::SkipEmptyParts);
-            MYDBG("setting preferred alangs %s", qPrintable(preferred_alangs.join(QLatin1String(", "))));
-        }
-
-        preferred_alangs.append(gs);
-        preferred_alangs.append(es);
-
-        preferred_alangs.removeDuplicates();
-        MP->set_preferred_alangs(preferred_alangs);
-
+    if(!falangs.isEmpty()) {
+        const QSet<QString> forbidden_alangs = falangs.toSet();
+        MYDBG("setting forbidden alangs %s", qPrintable(falangs.join(QLatin1String(", "))));
+        MP->set_forbidden_alangs(forbidden_alangs);
     }
 
     {
-        QStringList preferred_slangs;
+        MYDBG("setting preferred alangs %s", qPrintable(palangs.join(QLatin1String(", "))));
+        MP->set_preferred_alangs(palangs);
+    }
 
-        const QByteArray PSLANGS = qgetenv("MP_PSLANGS");
-
-        if(!PSLANGS.isEmpty()) {
-            QString sPSLANGS = QString::fromLocal8Bit(PSLANGS.constData());
-            preferred_slangs = sPSLANGS.split(QLatin1Char(','), QString::SkipEmptyParts);
-            MYDBG("setting preferred slangs %s", qPrintable(preferred_slangs.join(QLatin1String(", "))));
-        }
-
-        preferred_slangs.append(es);
-        preferred_slangs.append(gs);
-
-        preferred_slangs.removeDuplicates();
-
-        MP->set_preferred_slangs(preferred_slangs);
+    {
+        MYDBG("setting preferred slangs %s", qPrintable(pslangs.join(QLatin1String(", "))));
+        MP->set_preferred_slangs(pslangs);
     }
 
     MP->start_process();
@@ -146,14 +133,56 @@ void PlayerWindow::init_MP_object()
     XCONNECT(MP, SIGNAL(sig_I_give_up()), this, SLOT(slot_MP_does_not_work()), QUEUEDCONN);
 }
 
-PlayerWindow::PlayerWindow(bool in_fullscreen, const QStringList &in_mfns): QMainWindow()
+PlayerWindow::PlayerWindow(bool in_fullscreen
+                           , const QStringList &in_mfns
+                           , const QStringList &in_falangs
+                           , const QStringList &in_palangs
+                           , const QStringList &in_pslangs
+                          ):
+    QMainWindow()
+    , mfns(in_mfns)
+    , fullscreen(in_fullscreen)
+    , MP(NULL)
+    , cd(NULL)
+    , falangs(in_falangs)
+    , palangs(in_palangs)
+    , pslangs(in_pslangs)
 {
     setObjectName(QLatin1String("PlayerWindow"));
-    cd = NULL;
-    MP = NULL;
 
-    fullscreen = in_fullscreen;
-    mfns = in_mfns;
+    {
+        const QString gs = QLatin1String("ger");
+        const QString es = QLatin1String("eng");
+        {
+            if(!palangs.contains(gs)) {
+                palangs.append(gs);
+            }
+
+            if(!palangs.contains(es)) {
+                palangs.append(es);
+            }
+
+            palangs.removeDuplicates();
+        }
+        {
+            if(!pslangs.contains(es)) {
+                pslangs.append(es);
+            }
+
+            if(!pslangs.contains(gs)) {
+                pslangs.append(gs);
+            }
+
+            pslangs.removeDuplicates();
+        }
+    }
+
+    might_get_remote_files = false;
+    foreach(const QString & mfn, mfns) {
+        if(path_is_definitely_remote(mfn.toLocal8Bit().constData())) {
+            might_get_remote_files = true;
+        }
+    }
 
     QDesktopWidget *mydesk = QApplication::desktop();
 

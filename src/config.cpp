@@ -24,6 +24,7 @@ static QString get_X_core(char const *const key_c)
     const QByteArray envval = qgetenv(key_c);
 
     if(!envval.isEmpty()) {
+        MYDBG("got %s=%s from environment variable", key_c, envval.constData());
         return err_xbin_2_local_qstring(envval);
     }
 
@@ -32,9 +33,11 @@ static QString get_X_core(char const *const key_c)
 
     if(settings.contains(key)) {
         const QString ret = settings.value(key).toString();
+        MYDBG("got %s=%s from settings", key_c, qPrintable(ret));
         return ret;
     }
 
+    MYDBG("could not find a value for %s in environment or settings", key_c);
     QString empty;
     return empty;
 }

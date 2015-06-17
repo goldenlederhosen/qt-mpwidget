@@ -6,7 +6,7 @@
 #include <QKeyEvent>
 #include <QApplication>
 
-#include "util.h"
+#include "safe_signals.h"
 
 #define DEBUG_OQ
 

@@ -1,18 +1,23 @@
 #include "system.h"
 
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <unistd.h>
+
 #include <QFile>
 #include <QFileInfo>
 #include <QCoreApplication>
 #include <QByteArray>
 #include <QDir>
-#include <sys/time.h>
-#include <sys/resource.h>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTextStream>
 
 #include "singleqprocesssingleshot.h"
 #include "vregexp.h"
+#include "config.h"
+#include "encoding.h"
 
 #define DEBUG_SYS
 
@@ -333,12 +338,13 @@ void add_exe_dir_to_PATH(char const *argv0)
 
     const QString PATH_s = err_xbin_2_local_qstring(PATH_b);
     QStringList PATH_l = PATH_s.split(QLatin1Char(':'), QString::SkipEmptyParts);
+    PATH_l.removeDuplicates();
 
     bool found_missing = false;
     foreach(const QString & d, dirs_to_add) {
         if(!PATH_l.contains(d)) {
+            PATH_l.append(d);
             found_missing = true;
-            break;
         }
     }
 
@@ -346,12 +352,6 @@ void add_exe_dir_to_PATH(char const *argv0)
         return;
     }
 
-    PATH_l.removeDuplicates();
-    foreach(const QString & d, dirs_to_add) {
-        if(!PATH_l.contains(d)) {
-            PATH_l.append(d);
-        }
-    }
     const QString new_PATH_s = PATH_l.join(QLatin1String(":"));
     const QByteArray new_PATH_b = new_PATH_s.toLocal8Bit();
     ::setenv("PATH", new_PATH_b.constData(), 1);
@@ -367,7 +367,7 @@ static bool get_did_allow_core()
     bool ret = did_allow_core;
     return ret;
 }
-static void set_did_allow_bool()
+static void set_did_allow_core()
 {
     QMutexLocker l(&mutex_did_allow_bool);
     did_allow_core = true;
@@ -397,6 +397,8 @@ static void handle_abrt(const QString &cp)
 
     QTextStream in(&aaspd_o);
 
+    unsigned found = 0;
+
     while(true) {
         const QString line = in.readLine();
 
@@ -415,6 +417,8 @@ static void handle_abrt(const QString &cp)
             continue;
         }
 
+        found++;
+
         if(proc.contains(vr_good)) {
             MYDBG("%s: %s - good", aaspd_fn, qPrintable(proc));
         }
@@ -425,6 +429,14 @@ static void handle_abrt(const QString &cp)
             qWarning("%s: %s - I did not understand that line", aaspd_fn, qPrintable(proc));
         }
     }
+
+    if(found == 0) {
+        qWarning("did not find ProcessUnpackaged mentioned in %s - expected there to be a ..=yes line", aaspd_fn);
+    }
+    else if(found > 1) {
+        qWarning("found %ud mentions of ProcessUnpackaged=... in %s - expected there to be exactly 1", found, aaspd_fn);
+    }
+
 }
 
 void allow_core()
@@ -433,7 +445,7 @@ void allow_core()
         return;
     }
 
-    set_did_allow_bool();
+    set_did_allow_core();
 
     char const *const cp_fn = "/proc/sys/kernel/core_pattern";
     QFile f((QLatin1String(cp_fn)));
@@ -465,3 +477,303 @@ void allow_core()
 
     qWarning("could not set ulimit -c unlimited: %s", strerror(errno));
 }
+
+bool definitely_running_from_desktop()
+{
+    if(setand1_getenv("FROMDESKTOP")) {
+        MYDBG("FROMDESKTOP set - assuming run from desktop");
+        return true;
+    }
+
+    bool found_tty = false;
+    const pid_t pid = getpid();
+
+    for(int fd = 0; fd < 3; fd++) {
+        QString msg = QLatin1String("FD %1: ");
+        msg = msg.arg(fd);
+
+        {
+
+            QLatin1String format("/proc/%1/fd/%2");
+            QString qtpath = QString(format).arg(pid).arg(fd);
+            char *cpath = strdup(qtpath.toLocal8Bit().constData());
+            char readlink_buf[256];
+            ssize_t readlink_ret = readlink(cpath, readlink_buf, 256);
+            free(cpath);
+            cpath = NULL;
+            readlink_buf[255] = '\0';
+            QString readlinkmsg;
+
+            if(readlink_ret == (-1)) {
+                // normal error - see errno
+                readlinkmsg = QLatin1String("could not readlink(%1): %1");
+                readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(strerror(errno)));
+            }
+            else if(readlink_ret == 0) {
+                // nothing copied?
+                readlinkmsg = QLatin1String("could not readlink(%1): nothing copied");
+                readlinkmsg = readlinkmsg.arg(qtpath);
+            }
+            else if(readlink_ret < 0) {
+                // should never happen
+                readlinkmsg = QLatin1String("could not readlink(%1): unknown error");
+                readlinkmsg = readlinkmsg.arg(qtpath);
+            }
+            else {
+                // readlink_ret contains number of bytes placed in buffer
+                readlink_buf[readlink_ret] = '\0';
+                readlinkmsg = QLatin1String("readlink(%1)=%2");
+                readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(readlink_buf));
+            }
+
+            msg.append(readlinkmsg);
+        }
+
+        {
+
+            msg.append(QLatin1Char(' '));
+
+            // /proc/$$/fd/$FD - is a link
+            int isatty_ret = isatty(fd);
+
+            if(isatty_ret == 1) {
+                msg.append(QLatin1String("is a terminal"));
+                found_tty = true;
+            }
+            else if(isatty_ret != 0) {
+                QLatin1String format("isatty() returned %1 - should only be 1 or 0. Assuming means false");
+                QString isattymsg = QString(format).arg(isatty_ret);
+                msg.append(isattymsg);
+            }
+            else {
+
+                // errno - EBADF - not a valid FD; EINVAL or ENOTTY - not a terminal
+                if(errno == EBADF) {
+                    msg.append(QLatin1String("is not open"));
+                }
+                else if(errno == EINVAL || errno == ENOTTY) {
+                    msg.append(QLatin1String("is not a terminal"));
+                }
+                else {
+                    msg.append(QLatin1String("is not a terminal: "));
+                    msg.append(warn_xbin_2_local_qstring(strerror(errno)));
+                }
+            }
+        }
+
+        MYDBG("%s", qPrintable(msg));
+    }
+
+    if(found_tty) {
+        MYDBG("Looks like we are running from the command line");
+        return false;
+    }
+    else {
+
+        MYDBG("Looks like we are running from the desktop");
+        return true;
+    }
+}
+
+static bool looks_like_vdpau()
+{
+    // if vdpauinfo exists: call it. if return value = 0 - true
+    int ret_vdpauinfo = QProcess::execute(QLatin1String("vdpauinfo"));
+
+    if(ret_vdpauinfo == 0) {
+        MYDBG("vdpauinfo executed successfully, guessing nvidia");
+        return true;
+    }
+    else if(ret_vdpauinfo > 0) {
+        MYDBG("vdpauinfo failed, no nvidia");
+        return false;
+    }
+    else {
+        MYDBG("vdpauinfo not found/crashed");
+    }
+
+    // call xdpyinfo. grep for NV-CONTROL and NV-GLX
+    QProcess xdpyinfo;
+    xdpyinfo.start(QLatin1String("xdpyinfo"));
+    bool xdpyinfo_succeeded = false;
+
+    if(xdpyinfo.waitForStarted()) {
+
+        if(xdpyinfo.waitForFinished()) {
+            xdpyinfo_succeeded = true;
+            QByteArray result = xdpyinfo.readAll();
+
+            if(result.indexOf("NV-CONTROL") >= 0 && result.indexOf("NV-GLX") >= 0) {
+                MYDBG("xdpyinfo mentioned NV-CONTROL and NV-GLX, guessing nvidia");
+                return true;
+            }
+        }
+    }
+
+    if(xdpyinfo_succeeded) {
+        MYDBG("xdpyinfo did not mention NV-CONTROL and NV-GLX");
+    }
+    else {
+        qWarning("xdpyinfo did not succeed, this is weird");
+    }
+
+    return false;
+}
+
+static bool looks_like_nomachine()
+{
+    const QByteArray IN_NX = qgetenv("IN_NX");
+
+    if(!IN_NX.isEmpty() && IN_NX == "1") {
+        MYDBG("found IN_NX=1, assuming nomachine");
+        return true;
+    }
+
+    const QByteArray SSH_ORIGINAL_COMMAND = qgetenv("SSH_ORIGINAL_COMMAND");
+
+    if(!SSH_ORIGINAL_COMMAND.isEmpty() && SSH_ORIGINAL_COMMAND.endsWith("/nxnode")) {
+        MYDBG("found SSH_ORIGINAL_COMMAND=.../nxnode, assuming nomachine");
+        return true;
+    }
+
+    return false;
+}
+
+static bool looks_like_radeon()
+{
+    QProcess glxinfo;
+    glxinfo.start(QLatin1String("glxinfo"));
+    bool glxinfo_succeeded = false;
+
+    if(glxinfo.waitForStarted()) {
+
+        if(glxinfo.waitForFinished()) {
+            glxinfo_succeeded = true;
+            QByteArray result = glxinfo.readAll();
+
+            if(result.indexOf(" on AMD ") >= 0) {
+                MYDBG("glxinfo mentioned \" on AMD \", guessing radeon");
+                return true;
+            }
+        }
+    }
+
+    if(glxinfo_succeeded) {
+        MYDBG("glxinfo did not mention \" on AMD \"");
+    }
+    else {
+        qWarning("glxinfo did not succeed, this is weird");
+    }
+
+    return true;
+}
+
+static bool accelerated_gl()
+{
+    QProcess glxinfo;
+    glxinfo.start(QLatin1String("glxinfo"));
+    bool glxinfo_succeeded = false;
+
+    if(glxinfo.waitForStarted()) {
+
+        if(glxinfo.waitForFinished()) {
+            glxinfo_succeeded = true;
+            QByteArray result = glxinfo.readAll();
+
+            if(result.indexOf("direct rendering: Yes") >= 0) {
+                MYDBG("glxinfo mentioned \"direct rendering: Yes\", guessing OpenGL is there");
+                return true;
+            }
+        }
+    }
+
+    if(glxinfo_succeeded) {
+        MYDBG("glxinfo did not mention \"direct rendering: Yes\"");
+    }
+    else {
+        qWarning("glxinfo did not succeed, this is weird");
+    }
+
+    return false;
+}
+
+QString compute_MP_VO()
+{
+    const QString VO_set = get_MP_VO();
+
+    if(!VO_set.isEmpty()) {
+        return VO_set;
+    }
+
+    if(looks_like_vdpau()) {
+        return QLatin1String("vdpau:hqscaling=1:deint=4,gl:lscale=1:cscale=1,xv,x11");
+    }
+
+    if(looks_like_nomachine()) {
+        return QLatin1String("x11");
+    }
+
+    if(looks_like_radeon()) {
+        // mpv: lscale=lanczos2:dither-depth=auto:fbo-format=rgb16
+        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
+    }
+
+    if(accelerated_gl()) {
+        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
+    }
+
+    return QLatin1String("x11");
+
+}
+
+static QString compute_VDB_RUN_from_HOME(QString *reason)
+{
+    QString HOME = QDir::homePath();
+
+    if(HOME.isEmpty()) {
+        if(reason != NULL) {
+            *reason = QLatin1String("HOME directory not found");
+        }
+
+        QString empty;
+        return empty;
+    }
+
+    HOME.append(QLatin1String("/.vdb"));
+    return HOME;
+}
+
+QString compute_VDB_RUN(QString *reason)
+{
+
+    QString vdb_run_s = get_VDB_RUN();
+
+    if(vdb_run_s.isEmpty()) {
+        vdb_run_s = compute_VDB_RUN_from_HOME(reason);
+
+        if(vdb_run_s.isEmpty()) {
+            return vdb_run_s;
+        }
+    }
+
+    QDir vdb_run_o(vdb_run_s);
+
+    if(!vdb_run_o.exists()) {
+        if(reason != NULL) {
+            *reason = QLatin1String("VDB_RUN ") + vdb_run_s + QLatin1String(" does not exist");
+        }
+
+        qWarning("VDB_RUN %s does not exist", qPrintable(vdb_run_s));
+        QString empty;
+        return empty;
+    }
+
+    if(reason != NULL) {
+        reason->clear();
+    }
+
+    MYDBG("computed VDB_RUN=%s", qPrintable(vdb_run_s));
+
+    return vdb_run_s;
+}
+

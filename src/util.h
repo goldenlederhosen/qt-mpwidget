@@ -19,19 +19,6 @@
 
 #define ALLDBG(msg, ...) qWarning("%s:%lu: " msg, __FILE__, (unsigned long) __LINE__, ##__VA_ARGS__)
 
-#define INVOKE_DELAY(X)    QTimer::singleShot(0, this, SLOT(X));
-#define QUEUEDCONN         Qt::QueuedConnection
-#define xinvokeMethod(...) do{ \
-       if(!QMetaObject::invokeMethod(__VA_ARGS__)){\
-          PROGRAMMERERROR("method call failed");\
-       }\
-    } while(0)
-#define XCONNECT(...)      do{ \
-       if(!QObject::connect(__VA_ARGS__)){\
-          PROGRAMMERERROR("connect failed");\
-       }\
-    } while(0)
-
 enum class NoYesUnknown {
     No,
     Yes,
@@ -97,88 +84,6 @@ QStringList doSplitArgs(const QString &args);
 // true - set and 1
 bool setand1_getenv(char const *const varname);
 
-inline QString xbin_2_codec_qstring(bool doerr, char const *const blob, const size_t len, QTextCodec const *const codec)
-{
-    if(blob == NULL) {
-        PROGRAMMERERROR("NULL blob-string?");
-    }
-
-    if(len == 0) {
-        return QString();
-    }
-
-    if(codec == NULL) {
-        qFatal("Blob-string \"%s\": no codec found?", blob);
-    }
-
-    QTextCodec::ConverterState state;
-    const QString string = codec->toUnicode(blob, len, &state);
-
-    if(state.invalidChars > 0) {
-        if(doerr) {
-            qFatal("Blob-string \"%s\" not a valid %s sequence.", blob, codec->name().constData());
-        }
-        else {
-            qWarning("Blob-string \"%s\" not a valid %s sequence.", blob, codec->name().constData());
-        }
-
-    }
-
-    if(state.remainingChars > 0) {
-        if(doerr) {
-            qFatal("Blob-string \"%s\" not a valid %s sequence.", blob, codec->name().constData());
-        }
-        else {
-            qWarning("Blob-string \"%s\" not a valid %s sequence.", blob, codec->name().constData());
-        }
-    }
-
-    return string;
-}
-
-
-inline QString warn_xbin_2_local_qstring(char const *const blob)
-{
-    if(blob == NULL) {
-        PROGRAMMERERROR("NULL blob-string?");
-    }
-
-    const size_t len = strlen(blob);
-    return xbin_2_codec_qstring(false, blob, len, QTextCodec::codecForLocale());
-}
-
-inline QString err_xbin_2_local_qstring(char const *const blob)
-{
-    if(blob == NULL) {
-        PROGRAMMERERROR("NULL blob-string?");
-    }
-
-    const size_t len = strlen(blob);
-    return xbin_2_codec_qstring(true, blob, len, QTextCodec::codecForLocale());
-}
-
-inline QString err_xbin_2_utf8_qstring(char const *const blob)
-{
-    if(blob == NULL) {
-        PROGRAMMERERROR("NULL blob-string?");
-    }
-
-    const size_t len = strlen(blob);
-    return xbin_2_codec_qstring(true, blob, len, QTextCodec::codecForName("UTF-8"));
-}
-
-inline QString warn_xbin_2_local_qstring(const QByteArray &vblob)
-{
-    return xbin_2_codec_qstring(false, vblob.constData(), vblob.size(), QTextCodec::codecForLocale());
-}
-
-inline QString err_xbin_2_local_qstring(const QByteArray &vblob)
-{
-    return xbin_2_codec_qstring(true, vblob.constData(), vblob.size(), QTextCodec::codecForLocale());
-}
-
-bool definitely_running_from_desktop();
-
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
 void desktopMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
 void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
@@ -186,8 +91,6 @@ void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &ctx, con
 void desktopMessageOutput(QtMsgType type, const char *msg);
 void commandlineMessageOutput(QtMsgType type, const char *msg);
 #endif
-
-QString get_MP_VO();
 
 class QWidget;
 void set_focus_raise(QWidget *w);

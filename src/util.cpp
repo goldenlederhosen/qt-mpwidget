@@ -5,8 +5,22 @@
 #include <QProcess>
 #include <QWidget>
 
-#include "gui_overlayquit.h"
 #include "util.h"
+#include "gui_overlayquit.h"
+#include "encoding.h"
+#include "safe_signals.h"
+
+#define DEBUG_UTIL
+
+#ifdef DEBUG_ALL
+#define DEBUG_UTIL
+#endif
+
+#ifdef DEBUG_UTIL
+#define MYDBG(msg, ...) qDebug("UTIL " msg, ##__VA_ARGS__)
+#else
+#define MYDBG(msg, ...)
+#endif
 
 QString dt_2_human(const QDateTime &lastseenon)
 {
@@ -188,103 +202,6 @@ bool setand1_getenv(char const *const varname)
     }
 
     return true;
-}
-
-bool definitely_running_from_desktop()
-{
-    if(setand1_getenv("FROMDESKTOP")) {
-        qDebug("FROMDESKTOP set - assuming run from desktop");
-        return true;
-    }
-
-    bool found_tty = false;
-    const pid_t pid = getpid();
-
-    for(int fd = 0; fd < 3; fd++) {
-        QString msg = QLatin1String("FD %1: ");
-        msg = msg.arg(fd);
-
-        {
-
-            QLatin1String format("/proc/%1/fd/%2");
-            QString qtpath = QString(format).arg(pid).arg(fd);
-            char *cpath = strdup(qtpath.toLocal8Bit().constData());
-            char readlink_buf[256];
-            ssize_t readlink_ret = readlink(cpath, readlink_buf, 256);
-            free(cpath);
-            cpath = NULL;
-            readlink_buf[255] = '\0';
-            QString readlinkmsg;
-
-            if(readlink_ret == (-1)) {
-                // normal error - see errno
-                readlinkmsg = QLatin1String("could not readlink(%1): %1");
-                readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(strerror(errno)));
-            }
-            else if(readlink_ret == 0) {
-                // nothing copied?
-                readlinkmsg = QLatin1String("could not readlink(%1): nothing copied");
-                readlinkmsg = readlinkmsg.arg(qtpath);
-            }
-            else if(readlink_ret < 0) {
-                // should never happen
-                readlinkmsg = QLatin1String("could not readlink(%1): unknown error");
-                readlinkmsg = readlinkmsg.arg(qtpath);
-            }
-            else {
-                // readlink_ret contains number of bytes placed in buffer
-                readlink_buf[readlink_ret] = '\0';
-                readlinkmsg = QLatin1String("readlink(%1)=%2");
-                readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(readlink_buf));
-            }
-
-            msg.append(readlinkmsg);
-        }
-
-        {
-
-            msg.append(QLatin1Char(' '));
-
-            // /proc/$$/fd/$FD - is a link
-            int isatty_ret = isatty(fd);
-
-            if(isatty_ret == 1) {
-                msg.append(QLatin1String("is a terminal"));
-                found_tty = true;
-            }
-            else if(isatty_ret != 0) {
-                QLatin1String format("isatty() returned %1 - should only be 1 or 0. Assuming means false");
-                QString isattymsg = QString(format).arg(isatty_ret);
-                msg.append(isattymsg);
-            }
-            else {
-
-                // errno - EBADF - not a valid FD; EINVAL or ENOTTY - not a terminal
-                if(errno == EBADF) {
-                    msg.append(QLatin1String("is not open"));
-                }
-                else if(errno == EINVAL || errno == ENOTTY) {
-                    msg.append(QLatin1String("is not a terminal"));
-                }
-                else {
-                    msg.append(QLatin1String("is not a terminal: "));
-                    msg.append(warn_xbin_2_local_qstring(strerror(errno)));
-                }
-            }
-        }
-
-        qDebug("%s", qPrintable(msg));
-    }
-
-    if(found_tty) {
-        qDebug("Looks like we are running from the command line");
-        return false;
-    }
-    else {
-
-        qDebug("Looks like we are running from the desktop");
-        return true;
-    }
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
@@ -474,157 +391,6 @@ void commandlineMessageOutput(QtMsgType type, const char *msg)
 }
 
 #endif // QT4
-
-static bool looks_like_vdpau()
-{
-    // if vdpauinfo exists: call it. if return value = 0 - true
-    int ret_vdpauinfo = QProcess::execute(QLatin1String("vdpauinfo"));
-
-    if(ret_vdpauinfo == 0) {
-        qDebug("vdpauinfo executed successfully, guessing nvidia");
-        return true;
-    }
-    else if(ret_vdpauinfo > 0) {
-        qDebug("vdpauinfo failed, no nvidia");
-        return false;
-    }
-    else {
-        qDebug("vdpauinfo not found/crashed");
-    }
-
-    // call xdpyinfo. grep for NV-CONTROL and NV-GLX
-    QProcess xdpyinfo;
-    xdpyinfo.start(QLatin1String("xdpyinfo"));
-    bool xdpyinfo_succeeded = false;
-
-    if(xdpyinfo.waitForStarted()) {
-
-        if(xdpyinfo.waitForFinished()) {
-            xdpyinfo_succeeded = true;
-            QByteArray result = xdpyinfo.readAll();
-
-            if(result.indexOf("NV-CONTROL") >= 0 && result.indexOf("NV-GLX") >= 0) {
-                qDebug("xdpyinfo mentioned NV-CONTROL and NV-GLX, guessing nvidia");
-                return true;
-            }
-        }
-    }
-
-    if(xdpyinfo_succeeded) {
-        qDebug("xdpyinfo did not mention NV-CONTROL and NV-GLX");
-    }
-    else {
-        qDebug("xdpyinfo did not succeed, this is weird");
-    }
-
-    return false;
-}
-
-static bool looks_like_nomachine()
-{
-    const QByteArray IN_NX = qgetenv("IN_NX");
-
-    if(!IN_NX.isEmpty() && IN_NX == "1") {
-        qDebug("found IN_NX=1, assuming nomachine");
-        return true;
-    }
-
-    const QByteArray SSH_ORIGINAL_COMMAND = qgetenv("SSH_ORIGINAL_COMMAND");
-
-    if(!SSH_ORIGINAL_COMMAND.isEmpty() && SSH_ORIGINAL_COMMAND.endsWith("/nxnode")) {
-        qDebug("found SSH_ORIGINAL_COMMAND=.../nxnode, assuming nomachine");
-        return true;
-    }
-
-    return false;
-}
-
-static bool looks_like_radeon()
-{
-    QProcess glxinfo;
-    glxinfo.start(QLatin1String("glxinfo"));
-    bool glxinfo_succeeded = false;
-
-    if(glxinfo.waitForStarted()) {
-
-        if(glxinfo.waitForFinished()) {
-            glxinfo_succeeded = true;
-            QByteArray result = glxinfo.readAll();
-
-            if(result.indexOf(" on AMD ") >= 0) {
-                qDebug("glxinfo mentioned \" on AMD \", guessing radeon");
-                return true;
-            }
-        }
-    }
-
-    if(glxinfo_succeeded) {
-        qDebug("glxinfo did not mention \" on AMD \"");
-    }
-    else {
-        qDebug("glxinfo did not succeed, this is weird");
-    }
-
-    return true;
-}
-
-static bool accelerated_gl()
-{
-    QProcess glxinfo;
-    glxinfo.start(QLatin1String("glxinfo"));
-    bool glxinfo_succeeded = false;
-
-    if(glxinfo.waitForStarted()) {
-
-        if(glxinfo.waitForFinished()) {
-            glxinfo_succeeded = true;
-            QByteArray result = glxinfo.readAll();
-
-            if(result.indexOf("direct rendering: Yes") >= 0) {
-                qDebug("glxinfo mentioned \"direct rendering: Yes\", guessing OpenGL is there");
-                return true;
-            }
-        }
-    }
-
-    if(glxinfo_succeeded) {
-        qDebug("glxinfo did not mention \"direct rendering: Yes\"");
-    }
-    else {
-        qDebug("glxinfo did not succeed, this is weird");
-    }
-
-    return false;
-}
-
-QString get_MP_VO()
-{
-    const QByteArray VO = qgetenv("MP_VO");
-
-    if(!VO.isEmpty()) {
-        return err_xbin_2_local_qstring(VO);
-    }
-
-    if(looks_like_vdpau()) {
-        return QLatin1String("vdpau:hqscaling=1:deint=4,gl:lscale=1:cscale=1,xv,x11");
-    }
-
-    if(looks_like_nomachine()) {
-        return QLatin1String("x11");
-    }
-
-    if(looks_like_radeon()) {
-        // mpv: lscale=lanczos2:dither-depth=auto:fbo-format=rgb16
-        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
-    }
-
-    if(accelerated_gl()) {
-        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
-    }
-
-    return QLatin1String("x11");
-
-}
 
 void set_focus_raise(QWidget *w)
 {

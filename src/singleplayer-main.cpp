@@ -5,9 +5,11 @@
 #include <QSet>
 #include <QLatin1String>
 #include <QHash>
+#include <QCommandLineParser>
 
 #include "mainwindow.h"
 #include "capslock.h"
+#include "system.h"
 
 //#define DEBUG_MAIN
 
@@ -21,16 +23,25 @@
 #define MYDBG(msg, ...)
 #endif
 
-static void usage()
+static void usage(const QString &in_msg = QString())
 {
     // fixme fataldialog
-    qCritical("USAGE: %s <fullscreen|window> movfn.....\n"
+    QString msg = in_msg;
+
+    if(!msg.isEmpty()) {
+        msg.append(QLatin1String("\n"));
+    }
+
+    qCritical("%sUSAGE: %s <fullscreen|window> movfn.....\n"
               "\n"
-              "MP_PALANGS       - preferred audio languages comma separated list\n"
-              "MP_PSLANGS       - preferred subtitle languages comma separated list\n"
+              "--forbidden-alang=lang3  - forbidden audio language (may be multiple)\n"
+              "--pref-alang=lang3       - preferred audio language (may be multiple)\n"
+              "--pref-slang=lang3       - preferred subtitle language (may be multiple)\n"
+              "\n"
               "MP_OPTS_APPEND   - extra mplayer command line options\n"
               "MP_OPTS_OVERRIDE - mplayer command line options\n"
               "MP_VO            - mplayer -vo option\n"
+              "CROP             - mplayer-like crop string\n"
               "\n"
               "Booleans:\n"
               "SIL_MEASURE_LATENCY\n"
@@ -40,20 +51,91 @@ static void usage()
               "MC_FULL_TAGS\n"
               "QMP_PRINT_CRAP_OUTPUT\n"
               "QMP_PRINT_STATUS_OUTPUT\n"
+              , qPrintable(msg)
               , qPrintable(qApp->applicationFilePath())
              );
 }
-
-static QStringList charstarstar_2_stringlist(char const *const *const argv, int argc)
+static void usage(char const *const cmsg)
 {
-    QStringList l;
+    usage(QLatin1String(cmsg));
+}
 
-    for(int i = 0; i < argc; i++) {
-        l.append(QString::fromLocal8Bit(argv[i]));
+void parse_commandline(QCoreApplication &app
+                       , QStringList &mfns
+                       , bool &fullscreen
+                       , QStringList &falangs
+                       , QStringList &palangs
+                       , QStringList &pslangs)
+{
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QLatin1String("Single Player"));
+    parser.addHelpOption();
+
+    QCommandLineOption opt_falang(QStringList()  << QLatin1String("forbidden-alang")
+                                  , QLatin1String("forbidden audio language.")
+                                  , QLatin1String("lang3")
+                                 );
+    parser.addOption(opt_falang);
+
+    QCommandLineOption opt_palang(QStringList()  << QLatin1String("pref-alang")
+                                  , QLatin1String("preferred audio language.")
+                                  , QLatin1String("lang3")
+                                 );
+    parser.addOption(opt_palang);
+
+    QCommandLineOption opt_pslang(QStringList() << QLatin1String("s") << QLatin1String("pref-slang")
+                                  , QLatin1String("preferred subtitle language.")
+                                  , QLatin1String("lang3")
+                                 );
+    parser.addOption(opt_pslang);
+
+    parser.process(app);
+
+    falangs = parser.values(opt_falang);
+    palangs = parser.values(opt_palang);
+    pslangs = parser.values(opt_pslang);
+
+    {
+        const QStringList uon = parser.unknownOptionNames();
+
+        if(!uon.isEmpty()) {
+            QString uon_s = QLatin1String("found unknown switches ") + uon.join(QLatin1String(", "));
+            usage(uon_s);
+            exit(1);
+        }
     }
 
-    return l;
+    QStringList pa = parser.positionalArguments();
+
+    if(pa.isEmpty()) {
+        usage("no movie files mentioned");
+        exit(1);
+    }
+
+    const QString &smode = pa[0];
+
+    if(smode == QLatin1String("fullscreen")) {
+        fullscreen = true;
+        pa.removeFirst();
+    }
+    else if(smode == QLatin1String("window")) {
+        fullscreen = false;
+        pa.removeFirst();
+    }
+    else {
+        fullscreen = false;
+    }
+
+    if(pa.isEmpty()) {
+        usage("no movie files mentioned");
+        exit(1);
+    }
+
+    mfns = pa;
+
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -96,40 +178,30 @@ int main(int argc, char *argv[])
         }
     }
 
+    add_exe_dir_to_PATH(argv[0]);
+    allow_core();
+    QCoreApplication::setOrganizationName(QLatin1String("EckeSoft"));
+    QCoreApplication::setApplicationName(QLatin1String("SinglePlayer"));
+
     if(checkCapsLock()) {
         // fixme fataldialog
         qCritical("CAPSLOCK down");
         return(1);
     }
 
+    (void)qRegisterMetaType<MpMediaInfo>();
+
     QTime time = QTime::currentTime();
     qsrand((uint)time.msec());
 
+    QStringList mfns;
     bool fullscreen = false;
+    QStringList falangs;
+    QStringList palangs;
+    QStringList pslangs;
+    parse_commandline(app, mfns, fullscreen, falangs, palangs, pslangs);
 
-    int starti = 1;
-    QString farg = QString::fromLocal8Bit(argv[1]);
-
-    if(farg == QLatin1String("fullscreen")) {
-        fullscreen = true;
-        starti++;
-    }
-    else if(farg == QLatin1String("window")) {
-        fullscreen = false;
-        starti++;
-    }
-
-    QStringList mfns = charstarstar_2_stringlist(argv + starti, argc - starti);
-
-    if(mfns.isEmpty()) {
-        // fixme fataldialog
-        qCritical("Could not find valid dirs??");
-        return(1);
-    }
-
-    (void)qRegisterMetaType<MpMediaInfo>();
-
-    PlayerWindow *player = new PlayerWindow(fullscreen, mfns);
+    PlayerWindow *player = new PlayerWindow(fullscreen, mfns, falangs, palangs, pslangs);
 
     player->show();
     int ret = app.exec();

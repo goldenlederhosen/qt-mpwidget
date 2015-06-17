@@ -7,7 +7,8 @@
 #include <QLatin1String>
 #include <QCoreApplication>
 
-#include "util.h"
+#include "encoding.h"
+#include "safe_signals.h"
 
 //#define DEBUG_SQP
 

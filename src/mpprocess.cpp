@@ -17,6 +17,8 @@
 #include "vregexp.h"
 #include "asyncreadfile.h"
 #include "asynckillproc.h"
+#include "safe_signals.h"
+#include "encoding.h"
 
 //#define DEBUG_MPP
 //#define DEBUG_MPP_TIME

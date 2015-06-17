@@ -4,7 +4,7 @@
 #include <QCoreApplication>
 
 #include "singleqprocess.h"
-#include "util.h"
+#include "safe_signals.h"
 
 bool SingleQProcessSingleshot::run(const QString &exe, const QStringList &args, int waitmsecs, QString &error)
 {

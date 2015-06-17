@@ -12,7 +12,7 @@
 
 #include "asyncreadfile.h"
 #include "asyncreadfile_child.h"
-#include "util.h"
+#include "encoding.h"
 #include "asynckillproc.h"
 
 //#define DEBUG_CLF

@@ -17,6 +17,6 @@ public:
 // other things to do if problems:
 //    setUpdatesEnabled(false);
 //    override paintEvent (and resizeEvent?) to do nothing
-//    override paintEngine to return NULL
+// FIXME   override paintEngine to return NULL?
 
 #endif // MPPLAINVIDEOWIDGET_H

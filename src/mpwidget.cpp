@@ -25,6 +25,7 @@
 #include "mpplainvideowidget.h"
 #include "util.h"
 #include "gui_overlayquit.h"
+#include "safe_signals.h"
 
 //#define DEBUG_QMP
 //#define DEBUG_QMP_CWNG

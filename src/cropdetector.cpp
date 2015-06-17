@@ -1,5 +1,5 @@
 #include "cropdetector.h"
-#include "util.h"
+#include "safe_signals.h"
 
 #define DEBUG_CROPD
 
@@ -23,6 +23,7 @@ CropDetector::CropDetector(QObject *parent, QString in_mfn) :
     setObjectName(QLatin1String("CropDetector_") + fshort);
     proc.setObjectName(QLatin1String("CropDetector_QP_") + fshort);
 
+    // add dir of own exe to PATH
     QString program = QLatin1String("videofile.info");
     QStringList args;
     args << QLatin1String("-crop");
