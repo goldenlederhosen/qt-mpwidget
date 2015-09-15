@@ -32,7 +32,8 @@ HEADERS       = \
     config.h \
     encoding.h \
     remote_local.h \
-    fstypemagics.h
+    fstypemagics.h \
+    event_types.h
 SOURCES       = \
     mainwindow.cpp \
     util.cpp \
@@ -57,7 +58,8 @@ SOURCES       = \
     system.cpp \
     config.cpp \
     encoding.cpp \
-    remote_local.cpp
+    remote_local.cpp \
+    event_types.cpp
 
 QT+=svg dbus
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets 

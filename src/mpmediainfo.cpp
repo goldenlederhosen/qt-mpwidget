@@ -2,6 +2,99 @@
 
 #include "vregexp.h"
 
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "MPM"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MPMMYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
+
+void MpMediaInfo::set_DAR(double D)
+{
+    MPMMYDBG("set_DAR(%f)", D);
+    mc_DAR.set(D);
+}
+
+void  MpMediaInfo::set_PAR(double P)
+{
+    MPMMYDBG("set_PAR(%f)", P);
+    mc_PAR.set(P);
+}
+double MpMediaInfo::PAR() const
+{
+#ifdef CAUTION
+
+    if(mc_PAR.isset() && mc_DAR.isset()) {
+        const double P = mc_PAR.get();
+        const double D = mc_DAR.get();
+        const int h = height();
+        const int w = width();
+        const double P2 = D * h / w;
+
+        if(fabs(P * w - D * h) > 5) {
+            qFatal("PAR isset: %f. But DAR isset: PAR %f = %f * %d / %d", P, P2, D, h, w);
+        }
+    }
+
+#endif
+
+    if(mc_PAR.isset()) {
+        const double P = mc_PAR.get();
+        MPMMYDBG("PAR isset: %f", P);
+        return P;
+    }
+
+    if(mc_DAR.isset()) {
+        const double D = mc_DAR.get();
+        const int h = height();
+        const int w = width();
+        const double ret = D * h / w;
+        MPMMYDBG("DAR isset: PAR %f = %f * %d / %d", ret, D, h, w);
+        return ret;
+    }
+
+    MPMMYDBG("neither DAR nor PAR isset: 1.0");
+    const double one = 1.0;
+    return one;
+}
+double MpMediaInfo::DAR() const
+{
+#ifdef CAUTION
+
+    if(mc_DAR.isset() && mc_PAR.isset()) {
+        const double D = mc_DAR.get();
+        const double P = mc_PAR.get();
+        const int w = width();
+        const int h = height();
+        const double D2 = P * w / h;
+
+        if(fabs(D * h - P * w) > 5) {
+            qFatal("DAR isset: %f. But PAR isset: DAR %f = %f * %d / %d", D, D2, P, w, h);
+        }
+    }
+
+#endif
+
+    if(mc_DAR.isset()) {
+        const double D = mc_DAR.get();
+        MPMMYDBG("DAR isset: %f", D);
+        return D;
+    }
+
+    if(mc_PAR.isset()) {
+        const double P = mc_PAR.get();
+        const int w = width();
+        const int h = height();
+        const double ret = P * w / h;
+        MPMMYDBG("PAR isset: DAR %f = %f * %d / %d", ret, P, w, h);
+        return ret;
+    }
+
+    const int w = width();
+    const int h = height();
+    const double ret = w / h;
+    MPMMYDBG("neither DAR nor PAR isset: DAR %f = %d / %d", ret, w, h);
+    return ret;
+}
+
 static unsigned QSToUInt(const QString &s)
 {
     bool ok = false;

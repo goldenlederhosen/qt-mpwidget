@@ -2,17 +2,10 @@
 
 #include "util.h"
 
-#define DEBUG_ENCODING
-
-#ifdef DEBUG_ALL
-#define DEBUG_ENCODING
-#endif
-
-#ifdef DEBUG_ENCODING
-#define MYDBG(msg, ...) qDebug("UTIL " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+//#include <QLoggingCategory>
+//#define THIS_SOURCE_FILE_LOG_CATEGORY "ENC"
+//static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+//#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 QString xbin_2_codec_qstring(bool doerr, char const *const blob, const size_t len, QTextCodec const *const codec)
 {

@@ -20,36 +20,50 @@
 #include "safe_signals.h"
 #include "encoding.h"
 
-//#define DEBUG_MPP
-//#define DEBUG_MPP_TIME
+#include <QLoggingCategory>
 
-#ifdef DEBUG_ALL
-#define DEBUG_MPP
-#define DEBUG_MPP_TIME
-#endif
+#define THIS_SOURCE_FILE_LOG_CATEGORY_TIME "MMPTIME"
+static Q_LOGGING_CATEGORY(category_time, THIS_SOURCE_FILE_LOG_CATEGORY_TIME)
+#define TIMEMYDBG(msg, ...) qCDebug(category_time, "%s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__)
 
-#ifdef DEBUG_MPP_TIME
-#define DEBUG_MPP
-#endif
+#define THIS_SOURCE_FILE_LOG_CATEGORY "MMP"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) do{if(category_time().isDebugEnabled()){\
+                    qCDebug(category, "%s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__); \
+                    } else { \
+                    qCDebug(category, msg, ##__VA_ARGS__); \
+                    }}while(0)
+#define STATICDBG(msg, ...) do{if(category2().isDebugEnabled()){\
+                    qCDebug(category, "%s " msg, qPrintable(QDateTime::currentDateTimeUtc().toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__) ;\
+                    } else { \
+                    qCDebug(category, msg, ##__VA_ARGS__); \
+                    }}while(0)
 
-#ifdef DEBUG_MPP
-#  ifdef DEBUG_MPP_TIME
-#    define MYDBG(msg, ...) qDebug("MMP %s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__)
-#    define STATICDBG(msg, ...) qDebug("MMP %s " msg, qPrintable(QDateTime::currentDateTimeUtc().toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), ##__VA_ARGS__)
-#  else
-#    define MYDBG(msg, ...) qDebug("MMP " msg, ##__VA_ARGS__)
-#    define STATICDBG(msg, ...) qDebug("MMP " msg, ##__VA_ARGS__)
-#  endif
-#else
-#  define MYDBG(msg, ...)
-#  define STATICDBG(msg, ...)
-#endif
+#define THIS_SOURCE_FILE_LOG_CATEGORYIMP "MMPIMP"
+static Q_LOGGING_CATEGORY(category_imp, THIS_SOURCE_FILE_LOG_CATEGORYIMP)
+#define MYDBGIMP(msg, ...) do{if(category_time().isDebugEnabled()){\
+                    qCDebug(category_imp, "%s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__); \
+                    } else { \
+                    qCDebug(category_imp, msg, ##__VA_ARGS__); \
+                    }}while(0)
 
-#ifdef DEBUG_MPP_TIME
-#define TIMEMYDBG(msg, ...) MYDBG(msg, ##__VA_ARGS__)
-#else
-#define TIMEMYDBG(msg, ...)
-#endif
+#define THIS_SOURCE_FILE_LOG_CATEGORYCRAP "MMPCRAP"
+static Q_LOGGING_CATEGORY(categorycrap, THIS_SOURCE_FILE_LOG_CATEGORYCRAP)
+#define MYDBGCRAP(msg, ...) do{if(category_time().isDebugEnabled()){\
+                    qCDebug(categorycrap, "%s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__); \
+                    } else { \
+                    qCDebug(categorycrap, msg, ##__VA_ARGS__); \
+                    }}while(0)
+
+#define THIS_SOURCE_FILE_LOG_CATEGORYSTATUS "MMPSTATUS"
+static Q_LOGGING_CATEGORY(categorystatus, THIS_SOURCE_FILE_LOG_CATEGORYSTATUS)
+#define MYDBGSTATUS(msg, ...) do{if(category_time().isDebugEnabled()){\
+                    qCDebug(categorystatus, "%s(%f) " msg, qPrintable(now.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))), m_lastread_streamPosition, ##__VA_ARGS__); \
+                    } else { \
+                    qCDebug(categorystatus, msg, ##__VA_ARGS__); \
+                    }}while(0)
+
+#define NOW_BEHAVIOR
 
 // before attempting to load a file in mplayer, see if we can access it
 // first access just starts the HD, mounts the directory, ...
@@ -184,7 +198,7 @@ MpProcess::MpProcess(QObject *parent, MpMediaInfo *mip)
     setObjectName(QLatin1String("MPProcess"));
 
     {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
         QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
         MYDBG("MpProcess::MpProcess");
@@ -223,7 +237,7 @@ MpProcess::MpProcess(QObject *parent, MpMediaInfo *mip)
 
 void MpProcess::quit()
 {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     {
         QDateTime now = QDateTime::currentDateTimeUtc();
         MYDBG("MpProcess::quit");
@@ -241,14 +255,14 @@ void MpProcess::quit()
         m_outputq.clear();
 
         if(!m_proc->waitForFinished(wait_for_mplayer_quit_command_msec) && m_proc->state() != QProcess::NotRunning) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("terminate");
             m_proc->terminate();
 
             if(!m_proc->waitForFinished(wait_after_terminate_call_msec)  && m_proc->state() != QProcess::NotRunning) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
                 now = QDateTime::currentDateTimeUtc();
 #endif
                 MYDBG("kill");
@@ -270,7 +284,7 @@ void MpProcess::quit()
 
 MpProcess::~MpProcess()
 {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     {
         QDateTime now = QDateTime::currentDateTimeUtc();
         MYDBG("MpProcess::~MpProcess");
@@ -284,7 +298,7 @@ MpProcess::~MpProcess()
         delete m_cfg_output_accumulator_ignore;
     }
 
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
 
@@ -360,17 +374,17 @@ void MpProcess::start_process(int xwinid, const QStringList &args)
     //myargs += QLatin1String("threads=2");
 
     myargs += args;
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
-    qDebug("%s %s", qPrintable(m_cfg_mplayerPath), qPrintable(myargs.join(QLatin1String(" "))));
+    MYDBGIMP("%s %s", qPrintable(m_cfg_mplayerPath), qPrintable(myargs.join(QLatin1String(" "))));
 
     resetValues();
 
     m_proc->start(m_cfg_mplayerPath, myargs, QIODevice::Unbuffered | QIODevice::ReadWrite);
     m_saved_mplayer_args = myargs;
     QDateTime started = QDateTime::currentDateTimeUtc();
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     now = started;
 #endif
     TIMEMYDBG("start");
@@ -413,7 +427,7 @@ void MpProcess::force_cmd(const QString &cmd)
 
 void MpProcess::write_one_cmd(const QDateTime &now, const char *reason)
 {
-#ifndef DEBUG_MPP_TIME
+#ifndef NOW_BEHAVIOR
     Q_UNUSED(reason);
 #endif
 
@@ -578,8 +592,9 @@ void MpProcess::slot_submit_write(const MpProcessCmd &mpc, const QDateTime &subm
     // if this is a Seek, and there are already seeks in here, do not submit a duplicate
     if(0 && mpc.type() == Seek) {
         double thistarget = mpc.seektarget(*this);
+
         // if such a target already exists, do not put it in
-        foreach(const MpProcessCmd & qcmd, m_outputq) {
+        foreach(const MpProcessCmd &qcmd, m_outputq) {
             if(qcmd.type() != Seek) {
                 continue;
             }
@@ -629,7 +644,7 @@ void MpProcess::slot_submit_write(const MpProcessCmd &mpc, const QDateTime &subm
 void MpProcess::slot_submit_write(const QString &command)
 {
     QDateTime submitted = QDateTime::currentDateTimeUtc();
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime &now = submitted;
 #endif
     TIMEMYDBG("slot_submit_write");
@@ -674,7 +689,7 @@ void MpProcess::slot_seek_from_slider(int position)
 
 void MpProcess::slot_rel_seek_from_keyboard(double offset)
 {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
     MYDBG("Got a relative seek(%f) from the keyboard", offset);
@@ -683,7 +698,7 @@ void MpProcess::slot_rel_seek_from_keyboard(double offset)
 
 void MpProcess::slot_abs_seek_from_keyboard(double position)
 {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
     MYDBG("Got an absolute seek(%f) from the keyboard", position);
@@ -709,7 +724,7 @@ void MpProcess::core_seek(double offset, SeekMode whence)
 }
 void MpProcess::foundReadSpeed(double rspeed)
 {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
 
@@ -746,7 +761,7 @@ void MpProcess::slot_speed_up()
         slot_submit_write_latin1("speed_set 1.0");
 
         if(m_currently_muted) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("speeding up to 1 - unmuting after");
@@ -755,7 +770,7 @@ void MpProcess::slot_speed_up()
     }
     else {
         if(!m_currently_muted) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("speeding up - muting first");
@@ -783,7 +798,7 @@ void MpProcess::slot_slow_down()
         slot_submit_write_latin1("speed_set 1.0");
 
         if(m_currently_muted) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("slowing down to 1 - unmuting after");
@@ -792,7 +807,7 @@ void MpProcess::slot_slow_down()
     }
     else {
         if(!m_currently_muted) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("slowing down - muting first");
@@ -879,42 +894,15 @@ void MpProcess::clear_out_iobuffer_before_load()
 
 void MpProcess::dbg_out(char const *pref, const QString &line, const QDateTime &now)
 {
-#ifndef DEBUG_MPP_TIME
-    Q_UNUSED(now);
-#endif
-
-#ifdef DEBUG_MPP_TIME
-
     static const VRegExp rx_statusline((QLatin1String("(") + QLatin1String(statusline_rxlit) + QLatin1String(")")));
     static const VRegExp rx_crap((QLatin1String("(") + QLatin1String(crap_rxlit) + QLatin1String(")")));
 
-    static const bool QMP_PRINT_CRAP_OUTPUT = setand1_getenv("QMP_PRINT_CRAP_OUTPUT");
-    static const bool QMP_PRINT_STATUS_OUTPUT = setand1_getenv("QMP_PRINT_STATUS_OUTPUT");
-
-    const bool line_is_crap = (rx_crap.indexIn(line) >= 0);
-    const bool line_is_status = (rx_statusline.indexIn(line) >= 0);
-
-    bool doprint;
-
-    if(line_is_crap) {
-        doprint = QMP_PRINT_CRAP_OUTPUT;
+    if(rx_crap.indexIn(line) >= 0) {
+        MYDBGCRAP("%s: \"%s\"", pref, qPrintable(line));
     }
-    else if(line_is_status) {
-        doprint = QMP_PRINT_STATUS_OUTPUT;
+    else if(rx_statusline.indexIn(line) >= 0) {
+        MYDBGSTATUS("%s: \"%s\"", pref, qPrintable(line));
     }
-    else {
-        doprint = true;
-    }
-
-    if(doprint) {
-        MYDBG("%s: \"%s\"", pref, qPrintable(line));
-    }
-
-#else
-    Q_UNUSED(pref);
-    Q_UNUSED(line);
-    Q_UNUSED(now);
-#endif
 }
 
 void MpProcess::set_output_accumulator_ignore_default()
@@ -926,7 +914,7 @@ void MpProcess::set_output_accumulator_ignore_default()
     strcat(patt, "|");
     strcat(patt, crap_rxlit);
     strcat(patt, ")");
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
     MYDBG("ignoring all MP output matching \"%s\"", patt);
@@ -1014,7 +1002,7 @@ void MpProcess::proc_incremental_std(const QByteArray &bytes, IOChannel c)
     QStringList errorreasons;
     QList<double> foundspeeds;
 
-    foreach(const QString & line, lines) {
+    foreach(const QString &line, lines) {
         /* might
             * slot_submit_write()
             * go to error state and emit error string
@@ -1136,7 +1124,7 @@ void MpProcess::slot_quit_if_we_are_not_playing_yet()
 {
     if(m_curr_state != MpState::LoadingState) {
         {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("quit_if_we_are_not_playing_yet - but not in loadingstate");
@@ -1148,7 +1136,7 @@ void MpProcess::slot_quit_if_we_are_not_playing_yet()
     const qint64 elapsed_ms = m_loadingtimer.elapsed();
 
     if(elapsed_ms < max_time_for_loading_file_ms) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
         QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
         MYDBG("quit_if_we_are_not_playing_yet - but not enough time elapsed");
@@ -1288,7 +1276,7 @@ void MpProcess::slot_unmute()
 void MpProcess::parseLine(const QString &line, const QDateTime &readtime, QStringList &positionlines, QList<MpState> &newstates, QStringList &errorreasons, QList<double> &foundspeeds)
 {
     const QString tline = line.trimmed();
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime &now = readtime;
 #endif
 
@@ -1411,7 +1399,7 @@ void MpProcess::parseLine(const QString &line, const QDateTime &readtime, QStrin
 // Parses MPlayer's media identification output
 void MpProcess::parseMediaInfo(const QString &tline, const QDateTime &readtime)
 {
-#ifndef DEBUG_MPP_TIME
+#ifndef NOW_BEHAVIOR
     Q_UNUSED(readtime);
 #endif
     static VRegExp rxalang("^ID_AID_(\\d+)_LANG$");
@@ -1519,7 +1507,7 @@ void MpProcess::parseMediaInfo(const QString &tline, const QDateTime &readtime)
     else if(info[0] == QLatin1String("ID_FILENAME")) {
     }
     else {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
         const QDateTime &now = readtime;
 #endif
         MYDBG("unknown mediainfo %s=%s", qPrintable(info[0]), qPrintable(info[1]));
@@ -1534,7 +1522,7 @@ void MpProcess::parseMediaInfo(const QString &tline, const QDateTime &readtime)
 void MpProcess::parsePosition(const QString &tline, const QDateTime &readtime)
 {
 
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime &now = readtime;
 #endif
 
@@ -1615,7 +1603,8 @@ void MpProcess::parsePosition(const QString &tline, const QDateTime &readtime)
                 if(max_avmissynax > 0. && qAbs(amv) > max_avmissynax) {
                     double min = contenders.first();
                     double max = contenders.first();
-                    foreach(const double & v, contenders) {
+
+                    foreach(const double &v, contenders) {
                         if(v < min) {
                             min = v;
                         }
@@ -1624,6 +1613,7 @@ void MpProcess::parsePosition(const QString &tline, const QDateTime &readtime)
                             max = v;
                         }
                     }
+
                     min = int(min);
                     max = ceil(max);
                     seektarget = (normalspeed ? min : max);
@@ -1638,6 +1628,7 @@ void MpProcess::parsePosition(const QString &tline, const QDateTime &readtime)
     }
 
     double sum = 0;
+
     foreach(double v, contenders) {
         sum += v;
     }
@@ -1917,9 +1908,10 @@ void MpProcess::update_lastreadt(const QDateTime &readtime)
         qint64 msecs = m_lastreadt.msecsTo(readtime);
 
         if(msecs < 0) {
-            qDebug("last read at %s", qPrintable(m_lastreadt.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))));
-            qDebug("readtime %s", qPrintable(readtime.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))));
-            PROGRAMMERERROR("WTF");
+            PROGRAMMERERROR("WTF: last read at %s; readtime %s"
+                            , qPrintable(m_lastreadt.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz")))
+                            , qPrintable(readtime.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz")))
+                           );
         }
 
         const unsigned stateidx = MpState_2_idx(m_curr_state);
@@ -1932,9 +1924,10 @@ void MpProcess::update_lastreadt(const QDateTime &readtime)
             qint64 msecs_since_write = m_lastwritet.msecsTo(readtime);
 
             if(msecs_since_write < 0) {
-                qDebug("last write at %s", qPrintable(m_lastwritet.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))));
-                qDebug("readtime %s", qPrintable(readtime.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz"))));
-                PROGRAMMERERROR("WTF");
+                PROGRAMMERERROR("WTF? last write at %s; readtime %s"
+                                , qPrintable(m_lastwritet.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz")))
+                                , qPrintable(readtime.toLocalTime().toString(QLatin1String("hh:mm:ss.zzz")))
+                               );
             }
 
             if(m_max_encountered_writelatency_ms < 0 || msecs_since_write > m_max_encountered_writelatency_ms) {
@@ -1978,7 +1971,7 @@ void MpProcess::make_heartbeat_active_or_not()
         return;
     }
 
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
 
@@ -2109,7 +2102,7 @@ QString MpProcess::MpProcessCmd::command(MpProcess &proc) const
         const double newpos = proc.compute_seektarget_for_seek(m_seektarget, m_seekmode);
 
         if(newpos < -1.5) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             const QDateTime now = QDateTime::currentDateTimeUtc();
             const double m_lastread_streamPosition = proc.m_lastread_streamPosition;
 #endif
@@ -2127,7 +2120,7 @@ QString MpProcess::MpProcessCmd::command(MpProcess &proc) const
         }
 
         const QDateTime now = QDateTime::currentDateTimeUtc();
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
         const double m_lastread_streamPosition = proc.m_lastread_streamPosition;
 #endif
         TIMEMYDBG("MpProcessCmd::command(seek)");
@@ -2173,7 +2166,7 @@ QString MpProcess::MpProcessCmd::command(MpProcess &proc) const
 void MpProcess::set_assume_aid(int in_aid)
 {
     const QString alang = m_mediaInfo->aid_2_alang(in_aid);
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
     MYDBG("assuming AID will be %d in short order \"%s\"", in_aid, qPrintable(alang));
@@ -2200,7 +2193,7 @@ int MpProcess::set_assume_next_aid()
     const int next = cycle_alang(haid, m_current_aid);
 
     const QString alang = m_mediaInfo->aid_2_alang(next);
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
     MYDBG("assuming AID will cycle to %d in short order \"%s\"", next, qPrintable(alang));
@@ -2217,7 +2210,7 @@ int MpProcess::find_next_alang_not_in(const QSet<QString> &forbidden) const
     int next = cycle_alang(haid, m_current_aid);
 
     if(forbidden.isEmpty()) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
         const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
         MYDBG("going from AID %d (%s) to %d (%s)"
@@ -2231,7 +2224,7 @@ int MpProcess::find_next_alang_not_in(const QSet<QString> &forbidden) const
         const QString lang = m_mediaInfo->aid_2_alang(next);
 
         if(!forbidden.contains(lang)) {
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
             const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
             MYDBG("going from AID %d (%s) to %d (%s): is not one of %s", m_current_aid, qPrintable(m_mediaInfo->aid_2_alang(m_current_aid)), next, qPrintable(m_mediaInfo->aid_2_alang(next)), qPrintable(QStringList(forbidden.toList()).join(QLatin1String(","))));
@@ -2241,7 +2234,7 @@ int MpProcess::find_next_alang_not_in(const QSet<QString> &forbidden) const
         next = cycle_alang(haid, next);
     }
 
-#ifdef DEBUG_MPP_TIME
+#ifdef NOW_BEHAVIOR
     const QDateTime now = QDateTime::currentDateTimeUtc();
 #endif
 

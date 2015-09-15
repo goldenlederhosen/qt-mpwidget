@@ -7,19 +7,12 @@
 #include <QApplication>
 
 #include "safe_signals.h"
+#include "event_types.h"
 
-#define DEBUG_OQ
-
-#ifdef DEBUG_ALL
-#define DEBUG_OQ
-#endif
-
-#ifdef DEBUG_OQ
-#define MYDBG(msg, ...) qDebug("OQ %s " msg, qPrintable(this->objectName()), ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
-
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "OQ"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, "%s " msg, qPrintable(this->objectName()), ##__VA_ARGS__)
 
 void OverlayQuit::init(QWidget *in_body)
 {
@@ -36,7 +29,7 @@ void OverlayQuit::init(QWidget *in_body)
         m_quit_button = q;
     }
 
-    m_quit_button->setObjectName(objectName() + QLatin1String("_button"));
+    m_quit_button->setObjectName(objectName() + QLatin1String("_qbutton"));
     {
         QPalette Pal(m_quit_button->palette());
         Pal.setColor(QPalette::Button, Qt::red);
@@ -95,9 +88,11 @@ OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname, const QStr
 bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
 {
     if(!this->isVisible()) {
-        MYDBG("eF: not visible, pass through");
+        MYDBG("eventFilter: not visible, pass through");
         return false;
     }
+
+    MYDBG("eventFilter(%s) on %s", event_type_2_name(event->type()), qPrintable(object->objectName()));
 
     char const *oisdesc = NULL;
 
@@ -117,7 +112,7 @@ bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
 
     if(event->type() != QEvent::KeyPress) {
         if(event->type() != QEvent::MouseMove) {
-            MYDBG("eF: %s, event is not a keypress, pass through", oisdesc);
+            MYDBG("eventFilter: %s, event is not a keypress, pass through", oisdesc);
         }
 
         return false;
@@ -126,47 +121,66 @@ bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
     QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 
     if(keyEvent->key() == Qt::Key_Escape) {
-        MYDBG("eF: %s, ESC key detected", oisdesc);
+        MYDBG("eventFilter: %s, ESC key detected", oisdesc);
         slot_stop();
         return true;
     }
 
     if(!evfilter_body) {
-        MYDBG("eF: %s, not filtering events for body, pass through", oisdesc);
+        MYDBG("eventFilter: %s, not filtering events for body, pass through", oisdesc);
         return false;
     }
 
     if(keyEvent->key() == Qt::Key_Q) {
-        MYDBG("eF: %s, filtering events for body, detected Q", oisdesc);
+        MYDBG("eventFilter: %s, filtering events for body, detected Q", oisdesc);
         slot_stop();
         return true;
     }
 
     if(keyEvent->key() == Qt::Key_Enter) {
-        MYDBG("eF: %s, filtering events for body, detected Enter", oisdesc);
+        MYDBG("eventFilter: %s, filtering events for body, detected Enter", oisdesc);
         slot_stop();
         return true;
     }
 
     if(keyEvent->key() == Qt::Key_Return) {
-        MYDBG("eF: %s, filtering events for body, detected Return", oisdesc);
+        MYDBG("eventFilter: %s, filtering events for body, detected Return", oisdesc);
         slot_stop();
         return true;
     }
 
-    MYDBG("eF: %s, filtering events for body, unknown key detected, pass through", oisdesc);
+    MYDBG("eventFilter: %s, filtering events for body, unknown key detected, pass through", oisdesc);
     // return QWidget::eventFilter(object, event)
     return false;
 }
 
 void OverlayQuit::focusOutEvent(QFocusEvent *event)
 {
+    QWidget *fw = QApplication::focusWidget();
+
     if(this->isVisible()) {
-        MYDBG("losing focus, but visible - regrabbing");
-        this->setFocus(Qt::OtherFocusReason);
+        if(fw == NULL) {
+            MYDBG("window losing focus, but this widget visible");
+        }
+        else {
+            if(evfilter_body) {
+                MYDBG("losing focus, but visible - regrabbing. Current focus %s. giving focus to quit button", qPrintable(widget_2_name(fw)));
+                m_quit_button->setFocus(Qt::OtherFocusReason);
+            }
+            else {
+                MYDBG("losing focus, but visible - regrabbing. Current focus %s. giving focus to body", qPrintable(widget_2_name(fw)));
+                m_body->setFocus(Qt::OtherFocusReason);
+            }
+        }
     }
     else {
-        MYDBG("losing focus and hidden - its okay");
+        if(fw == NULL) {
+            MYDBG("window losing focus and this widget hidden");
+        }
+        else {
+            MYDBG("losing focus and hidden - its okay. Current focus %s", qPrintable(widget_2_name(fw)));
+        }
+
         QWidget::focusOutEvent(event);
     }
 }
@@ -235,6 +249,7 @@ void OverlayQuit::slot_stop()
     this->removeEventFilter(this);
 
     if(m_ori_focus != NULL) {
+        MYDBG("giving focus back to orifinal %s", qPrintable(m_ori_focus->objectName()));
         set_focus_raise(m_ori_focus);
     }
 
@@ -258,9 +273,11 @@ void OverlayQuit::start_oq()
     m_quit_button->show();
 
     if(evfilter_body) {
+        MYDBG("giving focus to quit button");
         m_quit_button->setFocus(Qt::OtherFocusReason);
     }
     else {
+        MYDBG("giving focus to body");
         m_body->setFocus(Qt::OtherFocusReason);
     }
 

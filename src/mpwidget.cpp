@@ -26,26 +26,18 @@
 #include "util.h"
 #include "gui_overlayquit.h"
 #include "safe_signals.h"
+#include "event_types.h"
 
-//#define DEBUG_QMP
-//#define DEBUG_QMP_CWNG
+#include <QLoggingCategory>
 
-#ifdef DEBUG_ALL
-#define DEBUG_QMP
-#define DEBUG_QMP_CWNG
-#endif
+#define THIS_SOURCE_FILE_LOG_CATEGORY "QMP"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
-#ifdef DEBUG_QMP
-#define MYDBG(msg, ...) qDebug("QMP " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
-
-#ifdef DEBUG_QMP_CWNG
-#define CWNGMYDBG(msg, ...) qDebug("QMP " msg, ##__VA_ARGS__)
-#else
-#define CWNGMYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY_CWNG "CWNG"
+static Q_LOGGING_CATEGORY(category_cwng, THIS_SOURCE_FILE_LOG_CATEGORY_CWNG)
+#define CWNGMYDBG(msg, ...) qCDebug(category_cwng, msg, ##__VA_ARGS__)
 
 // give up after that many crashes
 static const unsigned MP_PROCESS_MAX_START_COUNT = 20;
@@ -60,12 +52,14 @@ static const double seek_distance_3_sec = 600.;
 
 #define INVOKE_DELAY_MP(X) QTimer::singleShot(0, m_process, SLOT(X));
 
-class MySliderStyle : public QProxyStyle {
+class MySliderStyle : public QProxyStyle
+{
 public:
     explicit MySliderStyle(QStyle *baseStyle = 0) : QProxyStyle(baseStyle) {}
 
     int styleHint(QStyle::StyleHint hint, const QStyleOption *option = 0,
-                  const QWidget *widget = 0, QStyleHintReturn *returnData = 0) const {
+                  const QWidget *widget = 0, QStyleHintReturn *returnData = 0) const
+    {
         if(hint == QStyle::SH_Slider_AbsoluteSetButtons) {
             return (Qt::LeftButton | Qt::MidButton | Qt::RightButton);
         }
@@ -266,6 +260,8 @@ void MpWidget::slot_unhidemouse()
 
 bool MpWidget::eventFilter(QObject *watched, QEvent *event)
 {
+    MYDBG("eventFilter(%s on %s)", event_type_2_name((event->type())), qPrintable(watched->objectName()));
+
     if((watched == m_seek_slider || watched == m_sliderlabel) && event->type() == QEvent::MouseMove) {
         QMouseEvent *me = static_cast<QMouseEvent *>(event);
         mouseMoveEvent(me);
@@ -343,7 +339,7 @@ void MpWidget::slot_load_is_done()
         set_deinterlace(true);
     }
 
-    foreach(const QString & al, m_preferred_alangs) {
+    foreach(const QString &al, m_preferred_alangs) {
         if(try_alang(al)) {
             break;
         }
@@ -351,13 +347,14 @@ void MpWidget::slot_load_is_done()
         MYDBG("no %s audio track found", qPrintable(al));
     }
 
-    foreach(const QString & sl, m_preferred_slangs) {
+    foreach(const QString &sl, m_preferred_slangs) {
         if(try_slang(sl)) {
             break;
         }
 
         MYDBG("no %s subtitle track found", qPrintable(sl));
     }
+
     //print_all_info();
 
     if(m_startpos > 0.) {
@@ -858,10 +855,9 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
  *
  * \param event Resize event
  */
-void MpWidget::resizeEvent(QResizeEvent *event)
+void MpWidget::resizeEvent(QResizeEvent * /* event */)
 {
     MYDBG("resizeEvent");
-    Q_UNUSED(event);
     slot_updateWidgetSize();
 }
 

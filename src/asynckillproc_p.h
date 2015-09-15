@@ -6,7 +6,8 @@
 
 #include <sys/types.h>
 
-class AsyncKillProcess_Private : public QThread {
+class AsyncKillProcess_Private : public QThread
+{
     Q_OBJECT
 
 public:

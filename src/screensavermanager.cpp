@@ -6,22 +6,13 @@
 #include <QDBusMessage>
 #include <QApplication>
 
-#define DEBUG_SSMN
-
-#ifdef DEBUG_ALL
-#define DEBUG_SSMN
-#endif
-
-#ifdef DEBUG_SSMN
-#define MYDBG(msg, ...) qDebug("SSMN " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "SSMN"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 // when we have the screensaver disabled, simulate activity every N seconds (the Inhibit interface does not always work)
 static const int screensaver_simulate_activity_every_seconds = 30;
-
-// run with QDBUS_DEBUG=1 for more info. Unfortunately that can not be switched on at runtime
 
 ScreenSaverManager::ScreenSaverManager(QObject *parent, predicate_t func, void *payload):
     QObject(parent),
@@ -79,6 +70,8 @@ void ScreenSaverManager::enable()
     xsetscreensaver_enable();
 
     // FIXME: org.xfce.PowerManager ?
+    // org.freedesktop.PowerManagement /org/freedesktop/PowerManagement/Inhibit Inhibit bla bla
+    // org.freedesktop.PowerManagement /org/freedesktop/PowerManagement/Inhibit UnInhibit cookie
 
     if(m_pwcookie_valid) {
         QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.PowerManagement"),

@@ -10,18 +10,7 @@
 #include "asyncreadfile_child.h"
 #include "util.h"
 
-//#define DEBUG_CLF
-
-#ifdef DEBUG_ALL
-#define DEBUG_CLF
-#endif
-
-#ifdef DEBUG_CLF
-#  define CLDMYDBG(msg, ...) fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__)
-#else
-#  define CLDMYDBG(msg, ...)
-#endif
-
+#define CLDMYDBG(msg, ...) do{if(dodebug){fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__);}}while(0)
 
 const int sleep_if_read_not_ready_usec = 1000;
 const int sleep_if_pipe_full_usec = 1000;
@@ -38,7 +27,7 @@ static inline T MIN(const T a, const T b)
     }
 }
 
-static void childexit(bool succ, FILE *fh, char const *const c_filename_short)
+static void childexit(bool succ, FILE *fh, char const *const c_filename_short, bool dodebug)
 {
     (void)c_filename_short;
     const int ex = succ ? 0 : 1;
@@ -56,7 +45,7 @@ static void childexit(bool succ, FILE *fh, char const *const c_filename_short)
     ::_exit(ex);
 }
 
-static void childerrfatal(FILE *errmsg_write_fh, char const *const c_filename_short, char const *fmt, ...)
+static void childerrfatal(FILE *errmsg_write_fh, char const *const c_filename_short, bool dodebug, char const *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -71,10 +60,10 @@ static void childerrfatal(FILE *errmsg_write_fh, char const *const c_filename_sh
 
     va_end(ap);
 
-    childexit(false, errmsg_write_fh, c_filename_short);
+    childexit(false, errmsg_write_fh, c_filename_short, dodebug);
 }
 
-static void usleep_verboseonerr(unsigned long usecs, char const *const c_filename_short)
+static void usleep_verboseonerr(unsigned long usecs, char const *const c_filename_short, bool dodebug)
 {
     (void)c_filename_short;
 
@@ -91,11 +80,11 @@ static void usleep_verboseonerr(unsigned long usecs, char const *const c_filenam
     CLDMYDBG("usleep(%lu): %s", usecs, strerror(errno));
 }
 
-static void xclose(int &fd, FILE *errmsg_write_fh, char const *const c_filename_short)
+static void xclose(int &fd, FILE *errmsg_write_fh, char const *const c_filename_short, bool dodebug)
 {
     if(fd >= 0) {
         if(::close(fd)) {
-            childerrfatal(errmsg_write_fh, c_filename_short, "could not close file FD=%d: %s", fd, strerror(errno));
+            childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "could not close file FD=%d: %s", fd, strerror(errno));
         }
         else {
             CLDMYDBG("close(FD=%d)", fd);
@@ -105,38 +94,38 @@ static void xclose(int &fd, FILE *errmsg_write_fh, char const *const c_filename_
     }
 }
 
-static off_t xfsize(int fd, FILE *errmsg_write_fh, char const *const c_filename_short)
+static off_t xfsize(int fd, FILE *errmsg_write_fh, char const *const c_filename_short, bool dodebug)
 {
     struct stat st;
 
     if(::fstat(fd, &st)) {
-        childerrfatal(errmsg_write_fh, c_filename_short, "could not stat file FD=%d: %s", fd, strerror(errno));
+        childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "could not stat file FD=%d: %s", fd, strerror(errno));
     }
 
     const off_t size = st.st_size;
     return size;
 }
 
-static int xopen(char const *const c_filename, FILE *errmsg_write_fh, char const *const c_filename_short)
+static int xopen(char const *const c_filename, FILE *errmsg_write_fh, char const *const c_filename_short, bool dodebug)
 {
     int file_read_fd = ::open(c_filename, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NDELAY);
 
     if(file_read_fd < 0) {
-        childerrfatal(errmsg_write_fh, c_filename_short, "could not open: %s", strerror(errno));
+        childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "could not open: %s", strerror(errno));
     }
 
     CLDMYDBG("opened as FD=%d", file_read_fd);
     return file_read_fd;
 }
 
-void child_read_file(char const *const c_filename, char const *const c_filename_short, FILE *errmsg_write_fh,  int file_write_fd, const off_t maxreadsize, const off_t pipe_write_blocksize, const off_t file_read_blocksize)
+void child_read_file(char const *const c_filename, char const *const c_filename_short, FILE *errmsg_write_fh,  int file_write_fd, const off_t maxreadsize, const off_t pipe_write_blocksize, const off_t file_read_blocksize, bool dodebug)
 {
 
     CLDMYDBG("hi from child. errmsg FD=%d, pipe FD=%d", fileno(errmsg_write_fh), file_write_fd);
 
-    int file_read_fd = xopen(c_filename, errmsg_write_fh, c_filename_short);
+    int file_read_fd = xopen(c_filename, errmsg_write_fh, c_filename_short, dodebug);
 
-    const off_t size = xfsize(file_read_fd, errmsg_write_fh, c_filename_short);
+    const off_t size = xfsize(file_read_fd, errmsg_write_fh, c_filename_short, dodebug);
 
     const off_t toread = (maxreadsize < 0 ? size : (size > maxreadsize ? maxreadsize : size));
 
@@ -182,7 +171,7 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
     char *file_buffer = (char *)::malloc(file_read_blocksize);
 
     if(file_buffer == NULL) {
-        childerrfatal(errmsg_write_fh, c_filename_short, "no memory");
+        childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "no memory");
     }
 
     size_t readiters = 0;
@@ -208,17 +197,17 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
             int selectret = select(nfds, &readfds, NULL, NULL, &timeout);
 
             if(selectret < 0) {
-                childerrfatal(errmsg_write_fh, c_filename_short, "error waiting for data: %s", strerror(errno));
+                childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "error waiting for data: %s", strerror(errno));
             }
 
             if(selectret == 0) {
                 CLDMYDBG("data is not available on file FD=%d", file_read_fd);
-                //usleep_verboseonerr(sleep_if_read_not_ready_usec, c_filename_short);
+                //usleep_verboseonerr(sleep_if_read_not_ready_usec, c_filename_short, dodebug);
                 continue;
             }
 
             if(!FD_ISSET(file_read_fd, &readfds)) {
-                childerrfatal(errmsg_write_fh, c_filename_short, "select returned but file FD is not set?");
+                childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "select returned but file FD is not set?");
             }
 
             CLDMYDBG("data is available on file FD=%d", file_read_fd);
@@ -230,19 +219,19 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
 
         if(bytes_read == -1) {
             if(errno != EAGAIN && errno != EWOULDBLOCK) {
-                childerrfatal(errmsg_write_fh, c_filename_short, "error reading: %s", strerror(errno));
+                childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "error reading: %s", strerror(errno));
             }
 
             // since we had a select before and the FD is blocking this should never happen
             CLDMYDBG("wait on next data from file FD=%d to become available", file_read_fd);
-            usleep_verboseonerr(sleep_if_read_not_ready_usec, c_filename_short);
+            usleep_verboseonerr(sleep_if_read_not_ready_usec, c_filename_short, dodebug);
             continue;
         }
 
         if(bytes_read == 0) {
             // EOF
             if(pos < toread) {
-                childerrfatal(errmsg_write_fh, c_filename_short, "got EOF before reading all of file?");
+                childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "got EOF before reading all of file?");
             }
 
             CLDMYDBG("EOF after %lu blocks", readiters);
@@ -271,18 +260,18 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
                     int selectret = select(nfds, NULL, &writefds, NULL, &timeout);
 
                     if(selectret < 0) {
-                        childerrfatal(errmsg_write_fh, c_filename_short, "error waiting for pipe to drain: %s", strerror(errno));
+                        childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "error waiting for pipe to drain: %s", strerror(errno));
                     }
 
                     if(selectret == 0) {
                         // since we did not give a timeout this should never happen....
                         CLDMYDBG("data can not be written to pipe FD=%d", file_write_fd);
-                        //usleep_verboseonerr(sleep_if_pipe_full_usec, c_filename_short);
+                        //usleep_verboseonerr(sleep_if_pipe_full_usec, c_filename_short, dodebug);
                         continue;
                     }
 
                     if(!FD_ISSET(file_write_fd, &writefds)) {
-                        childerrfatal(errmsg_write_fh, c_filename_short, "select returned but file FD is not set?");
+                        childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "select returned but file FD is not set?");
                     }
 
                     CLDMYDBG("data can be written to pipe FD=%d", file_write_fd);
@@ -297,11 +286,11 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
                         CLDMYDBG("FD=%d not ready, weird", file_write_fd);
 
                         // this should never happen since we used the select above
-                        usleep_verboseonerr(sleep_if_pipe_full_usec, c_filename_short);
+                        usleep_verboseonerr(sleep_if_pipe_full_usec, c_filename_short, dodebug);
                         continue;
                     }
 
-                    childerrfatal(errmsg_write_fh, c_filename_short, "error writing: %s", strerror(errno));
+                    childerrfatal(errmsg_write_fh, c_filename_short, dodebug, "error writing: %s", strerror(errno));
                 }
                 else if(bw == 0) {
                     CLDMYDBG("write(FD=%d) returned 0?", file_write_fd);
@@ -311,7 +300,7 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
                     bytes_written += bw;
 
                     // give other end time to react
-                    usleep_verboseonerr(sleep_after_successful_write_usec, c_filename_short);
+                    usleep_verboseonerr(sleep_after_successful_write_usec, c_filename_short, dodebug);
                 }
 
             }
@@ -324,9 +313,9 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
 
     }
 
-    xclose(file_read_fd, errmsg_write_fh, c_filename_short);
-    xclose(file_write_fd, errmsg_write_fh, c_filename_short);
+    xclose(file_read_fd, errmsg_write_fh, c_filename_short, dodebug);
+    xclose(file_write_fd, errmsg_write_fh, c_filename_short, dodebug);
 
     CLDMYDBG("successfully read %lu bytes, exiting", (unsigned long) toread);
-    childexit(true, errmsg_write_fh, c_filename_short);
+    childexit(true, errmsg_write_fh, c_filename_short, dodebug);
 }

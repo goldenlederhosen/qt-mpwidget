@@ -8,17 +8,10 @@
 #include "util.h"
 #include "fstypemagics.h"
 
-#define DEBUG_REMLOC
-
-#ifdef DEBUG_ALL
-#define DEBUG_REMLOC
-#endif
-
-#ifdef DEBUG_REMLOC
-#define MYDBG(msg, ...) qDebug("REMLOC " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "REMLOC"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 enum class fs_remote_local {
     remote, local, unknown

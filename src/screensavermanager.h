@@ -7,7 +7,8 @@
 
 typedef bool (*predicate_t)(void *);
 
-class ScreenSaverManager: public QObject {
+class ScreenSaverManager: public QObject
+{
     Q_OBJECT
 private:
     NoYesUnknown m_screensaver_currently_enabled;

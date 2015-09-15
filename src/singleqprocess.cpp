@@ -10,17 +10,10 @@
 #include "encoding.h"
 #include "safe_signals.h"
 
-//#define DEBUG_SQP
-
-#ifdef DEBUG_ALL
-#define DEBUG_SQP
-#endif
-
-#ifdef DEBUG_SQP
-#define MYDBG(msg, ...) qDebug("SQP " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "SQP"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 static const int timeout_waitforstarted = 3000;
 

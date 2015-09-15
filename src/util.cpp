@@ -10,17 +10,10 @@
 #include "encoding.h"
 #include "safe_signals.h"
 
-#define DEBUG_UTIL
-
-#ifdef DEBUG_ALL
-#define DEBUG_UTIL
-#endif
-
-#ifdef DEBUG_UTIL
-#define MYDBG(msg, ...) qDebug("UTIL " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "UTIL"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 QString dt_2_human(const QDateTime &lastseenon)
 {
@@ -108,6 +101,7 @@ QStringList doSplitArgs(const QString &args)
 
     int p = 0;
     const int length = args.length();
+
     forever {
         forever {
             if(p == length) {
@@ -123,6 +117,7 @@ QStringList doSplitArgs(const QString &args)
 
         QString arg;
         bool inquote = false;
+
         forever {
             bool copy = true; // copy this char
             int bslashes = 0; // number of preceding backslashes to insert
@@ -182,6 +177,7 @@ QStringList doSplitArgs(const QString &args)
             ++p;
         }
     }
+
     //not reached
 }
 
@@ -190,25 +186,36 @@ bool setand1_getenv(char const *const varname)
     const QByteArray envval = qgetenv(varname);
 
     if(envval.isEmpty()) {
+        MYDBG("setand1_getenv(%s): not set", varname);
         return false;
     }
 
     if(envval.size() != 1) {
+        MYDBG("setand1_getenv(%s): \"%s\" not 1", varname, envval.constData());
         return false;
     }
 
     if(envval.at(0) != '1') {
+        MYDBG("setand1_getenv(%s): \"%s\" not 1", varname, envval.constData());
         return false;
     }
 
+    MYDBG("setand1_getenv(%s): exactly 1", varname);
     return true;
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
 
-void desktopMessageOutput(QtMsgType type, const QMessageLogContext &, const QString &qmsg)
+void desktopMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &qmsg)
 {
-    QByteArray bmsg = qmsg.toLocal8Bit();
+
+#if QT_VERSION >= QT_VERSION_CHECK(5,4,0)
+    const QByteArray bmsg = qFormatLogMessage(type, context, qmsg).toLocal8Bit();
+#else
+    Q_UNUSED(context);
+    const QByteArray bmsg = qmsg.toLocal8Bit();
+#endif
+
     const char *msg = bmsg.constData();
 
     switch(type) {
@@ -263,9 +270,14 @@ void desktopMessageOutput(QtMsgType type, const QMessageLogContext &, const QStr
         break;
     }
 }
-void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &, const QString &qmsg)
+void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &qmsg)
 {
-    QByteArray bmsg = qmsg.toLocal8Bit();
+#if QT_VERSION >= QT_VERSION_CHECK(5,4,0)
+    const QByteArray bmsg = qFormatLogMessage(type, context, qmsg).toLocal8Bit();
+#else
+    Q_UNUSED(context);
+    const QByteArray bmsg = qmsg.toLocal8Bit();
+#endif
     const char *msg = bmsg.constData();
 
     switch(type) {
@@ -397,5 +409,20 @@ void set_focus_raise(QWidget *w)
     w->show();
     w->raise();
     w->setFocus(Qt::OtherFocusReason);
+    MYDBG("giving focus to %s", qPrintable(w->objectName()));
 }
 
+QString widget_2_name(QWidget *w)
+{
+    if(w == NULL) {
+        return QLatin1String("<none>");
+    }
+
+    QString o = w->objectName();
+
+    if(o.isEmpty()) {
+        return QLatin1String("<unnamed>");
+    }
+
+    return o;
+}

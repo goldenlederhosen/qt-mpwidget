@@ -8,9 +8,11 @@
 
 // a QRegExp that is always valid - it dies at construction time otherwise
 
-class VRegExp : public QRegExp {
+class VRegExp : public QRegExp
+{
 private:
-    void check() const {
+    void check() const
+    {
         if(Q_LIKELY(this->isValid())) {
             return;
         }
@@ -20,15 +22,19 @@ private:
     }
     explicit VRegExp();
 public:
-    explicit VRegExp(const QRegExp &in): QRegExp(in) {
+    explicit VRegExp(const QRegExp &in): QRegExp(in)
+    {
         check();
     }
-    explicit VRegExp(const VRegExp &in): QRegExp(in) {
+    explicit VRegExp(const VRegExp &in): QRegExp(in)
+    {
     }
-    explicit VRegExp(char const *const in): QRegExp(QLatin1String(in)) {
+    explicit VRegExp(char const *const in): QRegExp(QLatin1String(in))
+    {
         check();
     }
-    explicit VRegExp(const QString &in): QRegExp(in) {
+    explicit VRegExp(const QString &in): QRegExp(in)
+    {
         check();
     }
 };

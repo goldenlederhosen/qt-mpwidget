@@ -1,17 +1,10 @@
 #include "xsetscreensaver.h"
 #include <QtGlobal>
 
-#define DEBUG_XSSS
-
-#ifdef DEBUG_ALL
-#define DEBUG_XSSS
-#endif
-
-#ifdef DEBUG_XSSS
-#define MYDBG(msg, ...) qDebug("XSSS " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "XSSS"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 #if defined Q_WS_X11
 # include <X11/Xlib.h>

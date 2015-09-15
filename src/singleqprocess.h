@@ -9,7 +9,8 @@
 
 #include "qprocess_meta.h"
 
-class SingleQProcess : public QObject {
+class SingleQProcess : public QObject
+{
     Q_OBJECT
 private:
     QProcess *proc;

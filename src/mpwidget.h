@@ -37,7 +37,8 @@ class OverlayQuit;
 
 class MpPlainVideoWidget;
 
-class MpWidget : public QWidget {
+class MpWidget : public QWidget
+{
     Q_OBJECT
     Q_PROPERTY(MpState state READ state)
     Q_PROPERTY(double streamPosition READ current_position)

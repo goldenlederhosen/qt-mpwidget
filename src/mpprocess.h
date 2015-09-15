@@ -21,7 +21,8 @@ const unsigned osd_default_duration_ms = 2000;
 #include "screensavermanager.h"
 
 // A custom QProcess designed for the MPlayer slave interface
-class MpProcess : public QObject {
+class MpProcess : public QObject
+{
     Q_OBJECT
 
 public:
@@ -51,16 +52,21 @@ private:
         Delay
     };
 
-    class mpctag_string {
+    class mpctag_string
+    {
     };
-    class mpctag_seek {
+    class mpctag_seek
+    {
     };
-    class mpctag_osdsl {
+    class mpctag_osdsl
+    {
     };
-    class mpctag_delay {
+    class mpctag_delay
+    {
     };
 
-    class MpProcessCmd {
+    class MpProcessCmd
+    {
     private:
         MpCommandType m_type;
         QString m_command;
@@ -87,20 +93,24 @@ private:
             m_delay(delay),
             m_created(in_dt) {}
         QString command(MpProcess &proc) const;
-        const QDateTime &created() const {
+        const QDateTime &created() const
+        {
             return m_created;
         }
-        MpCommandType type() const {
+        MpCommandType type() const
+        {
             return m_type;
         }
-        double delay() const {
+        double delay() const
+        {
             if(m_type != Delay) {
                 PROGRAMMERERROR("WTF");
             }
 
             return m_delay;
         }
-        double seektarget(MpProcess &proc) const {
+        double seektarget(MpProcess &proc) const
+        {
             if(m_type != Seek) {
                 PROGRAMMERERROR("WTF");
             }
@@ -161,49 +171,60 @@ private:
 
 public:
 
-    MpState state() const {
+    MpState state() const
+    {
         return m_curr_state;
     }
-    Q_PID pid() const {
+    Q_PID pid() const
+    {
         if(m_proc == NULL) {
             return -1;
         }
 
         return m_proc->pid();
     }
-    const QString &videoOutput() const {
+    const QString &videoOutput() const
+    {
         return m_cfg_videoOutput;
     }
-    void setVideoOutput(const QString &vo) {
+    void setVideoOutput(const QString &vo)
+    {
         if(vo.isEmpty()) {
             qWarning("setVideoOutput(): given empty string??");
         }
 
         m_cfg_videoOutput = vo;
     }
-    const QString &mplayerPath() const {
+    const QString &mplayerPath() const
+    {
         return m_cfg_mplayerPath;
     }
-    void setMplayerPath(const QString &mp) {
+    void setMplayerPath(const QString &mp)
+    {
         m_cfg_mplayerPath = mp;
     }
-    const QStringList &mplayer_args() const {
+    const QStringList &mplayer_args() const
+    {
         return m_saved_mplayer_args;
     }
-    void set_accumulated_output_maxlines(size_t in) {
+    void set_accumulated_output_maxlines(size_t in)
+    {
         m_cfg_acc_maxlines = in;
 
         while(size_t(m_acc.size()) > m_cfg_acc_maxlines) {
             m_acc.removeFirst();
         }
     }
-    const QList<MpProcessIolog> &accumulated_output() const {
+    const QList<MpProcessIolog> &accumulated_output() const
+    {
         return m_acc;
     }
-    void set_output_accumulator_mode(IOChannels in) {
+    void set_output_accumulator_mode(IOChannels in)
+    {
         m_cfg_output_accumulator_mode = in;
     }
-    void set_output_accumulator_ignore(const VRegExp &in) {
+    void set_output_accumulator_ignore(const VRegExp &in)
+    {
         if(m_cfg_output_accumulator_ignore != NULL) {
             delete m_cfg_output_accumulator_ignore;
             m_cfg_output_accumulator_ignore = NULL;
@@ -211,7 +232,8 @@ public:
 
         m_cfg_output_accumulator_ignore = new VRegExp(in);
     }
-    void set_output_accumulator_ignore(char const *const in) {
+    void set_output_accumulator_ignore(char const *const in)
+    {
         if(m_cfg_output_accumulator_ignore != NULL) {
             delete m_cfg_output_accumulator_ignore;
             m_cfg_output_accumulator_ignore = NULL;
@@ -222,7 +244,8 @@ public:
         }
     }
     void set_output_accumulator_ignore_default();
-    QProcess::ProcessState processState() const {
+    QProcess::ProcessState processState() const
+    {
         return m_proc->state();
     }
 
@@ -323,7 +346,8 @@ private:
     void make_heartbeat_active_or_not();
     void streamPositionReadAt(double newpos, const QDateTime &now);
     double compute_seektarget_for_seek(double target, SeekMode smode) const;
-    double mediainfo_length() const {
+    double mediainfo_length() const
+    {
         if(!m_mediaInfo->has_length()) {
             return (-1);
         }

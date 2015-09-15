@@ -5,7 +5,8 @@
 
 // get() fails if not set before
 // set() fails if seal() has been called
-template <typename T> class CheckedGet {
+template <typename T> class CheckedGet
+{
 private:
     bool m_isset;
 #ifdef CAUTION
@@ -37,9 +38,11 @@ public:
 #ifdef CAUTION
         m_sealed(false),
 #endif
-        m_val(ival) {
+        m_val(ival)
+    {
     }
-    CheckedGet<T> &operator=(const CheckedGet<T> &in) {
+    CheckedGet<T> &operator=(const CheckedGet<T> &in)
+    {
         m_isset = in.m_isset;
 #ifdef CAUTION
         m_sealed = in.m_sealed;
@@ -47,14 +50,16 @@ public:
         m_val = in.m_val;
         return *this;
     }
-    void clear() {
+    void clear()
+    {
         m_isset = false;
 #ifdef CAUTION
         m_sealed = false;
 #endif
         m_val = T();
     }
-    const T &get() const {
+    const T &get() const
+    {
 #ifdef CAUTION
 
         if(!m_isset) {
@@ -64,7 +69,8 @@ public:
 #endif
         return m_val;
     }
-    void set(const T &ival) {
+    void set(const T &ival)
+    {
 #ifdef CAUTION
 
         if(m_sealed) {
@@ -75,39 +81,46 @@ public:
         m_isset = true;
         m_val = ival;
     }
-    void force_set(const T &ival) {
+    void force_set(const T &ival)
+    {
         m_isset = true;
         m_val = ival;
     }
-    void set_and_seal(const T &ival) {
+    void set_and_seal(const T &ival)
+    {
         set(ival);
         seal();
     }
-    void seal() {
+    void seal()
+    {
 #ifdef CAUTION
         m_sealed = true;
 #endif
     }
-    void unseal() {
+    void unseal()
+    {
 #ifdef CAUTION
         m_sealed = false;
 #endif
     }
-    bool issealed() const {
+    bool issealed() const
+    {
 #ifdef CAUTION
         return m_sealed;
 #else
         return false;
 #endif
     }
-    bool isset() const {
+    bool isset() const
+    {
         return m_isset;
     }
 };
 // problem: only integer types for T (C++ problem)
 // implicitly defaults to template argument
 // set() fails if seal() has been called
-template <typename T, const T def> class CheckedGetDefault {
+template <typename T, const T def> class CheckedGetDefault
+{
 private:
 #ifdef CAUTION
     bool m_sealed;
@@ -132,23 +145,27 @@ public:
         m_sealed(in.m_sealed),
 #endif
         m_val(in.m_val) {}
-    CheckedGetDefault<T, def> &operator=(const CheckedGetDefault<T, def> &in) {
+    CheckedGetDefault<T, def> &operator=(const CheckedGetDefault<T, def> &in)
+    {
 #ifdef CAUTION
         m_sealed = in.m_sealed;
 #endif
         m_val = in.m_val;
         return *this;
     }
-    void clear() {
+    void clear()
+    {
 #ifdef CAUTION
         m_sealed = false;
 #endif
         m_val = def;
     }
-    const T &get() const {
+    const T &get() const
+    {
         return m_val;
     }
-    void set(const T &ival) {
+    void set(const T &ival)
+    {
 #ifdef CAUTION
 
         if(m_sealed) {
@@ -158,21 +175,25 @@ public:
 #endif
         m_val = ival;
     }
-    void set_and_seal(const T &ival) {
+    void set_and_seal(const T &ival)
+    {
         set(ival);
         seal();
     }
-    void seal() {
+    void seal()
+    {
 #ifdef CAUTION
         m_sealed = true;
 #endif
     }
-    void unseal() {
+    void unseal()
+    {
 #ifdef CAUTION
         m_sealed = false;
 #endif
     }
-    bool issealed() const {
+    bool issealed() const
+    {
 #ifdef CAUTION
         return m_sealed;
 #else
@@ -182,7 +203,8 @@ public:
 };
 // problem: only integer types for T (C++ problem)
 // implicitly defaults to template argument
-template <typename T, T def> class GetDefault {
+template <typename T, T def> class GetDefault
+{
 private:
     T m_val;
 public:
@@ -192,17 +214,21 @@ public:
     explicit GetDefault<T, def>(const T &ival): m_val(ival) {}
     // needs to be same as clear(), set(ival)
     explicit GetDefault<T, def>(const GetDefault<T, def> &in): m_val(in.m_val) {}
-    GetDefault<T, def> &operator=(const GetDefault<T, def> &in) {
+    GetDefault<T, def> &operator=(const GetDefault<T, def> &in)
+    {
         m_val = in.m_val;
         return *this;
     }
-    void clear() {
+    void clear()
+    {
         m_val = def;
     }
-    const T &get() const {
+    const T &get() const
+    {
         return m_val;
     }
-    void set(const T &ival) {
+    void set(const T &ival)
+    {
         m_val = ival;
     }
 };

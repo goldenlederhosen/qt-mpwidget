@@ -1,217 +1,277 @@
 #include "event_types.h"
+#include "util.h"
 #include <cstring>
 
-struct event_info_t {
-    char const *name;
-    int e;
-    char const *desc;
+struct event_type_info_st {
+    char const *const name;
+    char const *const desc;
 };
 
-#define MAXN 500
-static struct event_info_t events_infos[MAXN];
-static int N = 0;
+typedef struct event_type_info_st event_type_info_t;
 
-static void add_et(char const *const name, int e, char const *const desc)
-{
-    events_infos[N].name = name;
-    events_infos[N].e = e;
-    events_infos[N].desc = desc;
-    N++;
-}
-
-static int e_to_N(const int e)
-{
-    for(int i = 0; i < MAXN; i++) {
-        if(events_infos[i].e == e) {
-            return i;
-        }
-    }
-
-    return (-1);
-}
-
-static bool isinit = false;
-static void init()
-{
-    if(isinit) {
-        return;
-    }
-
-    isinit = true;
-
-    for(int i = 0; i < MAXN; i++) {
-        events_infos[N].name = NULL;
-        events_infos[N].e = -1;
-        events_infos[N].desc = NULL;
-    }
-
-    add_et("None", 0, "Not an event.");
-    add_et("ActionAdded", 114, "A new action has been added (QActionEvent).");
-    add_et("ActionChanged", 113, "An action has been changed (QActionEvent).");
-    add_et("ActionRemoved", 115, "An action has been removed (QActionEvent).");
-    add_et("ActivationChange", 99, "A widget's top-level window activation state has changed.");
-    add_et("ApplicationActivate", 121, "This enum has been deprecated. Use ApplicationStateChange instead.");
-    add_et("ApplicationDeactivate", 122, "This enum has been deprecated. Use ApplicationStateChange instead.");
-    add_et("ApplicationFontChange", 36, "The default application font has changed.");
-    add_et("ApplicationLayoutDirectionChange", 37, "The default application layout direction has changed.");
-    add_et("ApplicationPaletteChange", 38, "The default application palette has changed.");
-    add_et("ApplicationStateChange", 214, "The state of the application has changed.");
-    add_et("ApplicationWindowIconChange", 35, "The application's icon has changed.");
-    add_et("ChildAdded", 68, "An object gets a child (QChildEvent).");
-    add_et("ChildPolished", 69, "A widget child gets polished (QChildEvent).");
-    add_et("ChildRemoved", 71, "An object loses a child (QChildEvent).");
-    add_et("Clipboard", 40, "The clipboard contents have changed.");
-    add_et("Close", 19, "Widget was closed (QCloseEvent).");
-    add_et("CloseSoftwareInputPanel", 200, "A widget wants to close the software input panel (SIP).");
-    add_et("ContentsRectChange", 178, "The margins of the widget's content rect changed.");
-    add_et("ContextMenu", 82, "Context popup menu (QContextMenuEvent).");
-    add_et("CursorChange", 183, "The widget's cursor has changed.");
-    add_et("DeferredDelete", 52, "The object will be deleted after it has cleaned up (QDeferredDeleteEvent)");
-    add_et("DragEnter", 60, "The cursor enters a widget during a drag and drop operation (QDragEnterEvent).");
-    add_et("DragLeave", 62, "The cursor leaves a widget during a drag and drop operation (QDragLeaveEvent).");
-    add_et("DragMove", 61, "A drag and drop operation is in progress (QDragMoveEvent).");
-    add_et("Drop", 63, "A drag and drop operation is completed (QDropEvent).");
-    add_et("DynamicPropertyChange", 170, "A dynamic property was added, changed, or removed from the object.");
-    add_et("EnabledChange", 98, "Widget's enabled state has changed.");
-    add_et("Enter", 10, "Mouse enters widget's boundaries (QEnterEvent).");
-    add_et("EnterEditFocus", 150, "An editor widget gains focus for editing. QT_KEYPAD_NAVIGATION must be defined.");
-    add_et("EnterWhatsThisMode", 124, "Send to toplevel widgets when the application enters WhatsThis mode.");
-    add_et("Expose", 206, "Sent to a window when its on-screen contents are invalidated and need to be flushed from the backing store.");
-    add_et("FileOpen", 116, "File open request (QFileOpenEvent).");
-    add_et("FocusIn", 8, "Widget or Window gains keyboard focus (QFocusEvent).");
-    add_et("FocusOut", 9, "Widget or Window loses keyboard focus (QFocusEvent).");
-    add_et("FocusAboutToChange", 23, "Widget or Window focus is about to change (QFocusEvent)");
-    add_et("FontChange", 97, "Widget's font has changed.");
-    add_et("Gesture", 198, "A gesture was triggered(QGestureEvent).");
-    add_et("GestureOverride", 202, "A gesture override was triggered(QGestureEvent).");
-    add_et("GrabKeyboard", 188, "Item gains keyboard grab(QGraphicsItem only).");
-    add_et("GrabMouse", 186, "Item gains mouse grab(QGraphicsItem only).");
-    add_et("GraphicsSceneContextMenu", 159, "Context popup menu over a graphics scene(QGraphicsSceneContextMenuEvent).");
-    add_et("GraphicsSceneDragEnter", 164, "The cursor enters a graphics scene during a drag and drop operation(QGraphicsSceneDragDropEvent).");
-    add_et("GraphicsSceneDragLeave", 166, "The cursor leaves a graphics scene during a drag and drop operation(QGraphicsSceneDragDropEvent).");
-    add_et("GraphicsSceneDragMove", 165, "A drag and drop operation is in progress over a scene(QGraphicsSceneDragDropEvent).");
-    add_et("GraphicsSceneDrop", 167, "A drag and drop operation is completed over a scene(QGraphicsSceneDragDropEvent).");
-    add_et("GraphicsSceneHelp", 163, "The user requests help for a graphics scene(QHelpEvent).");
-    add_et("GraphicsSceneHoverEnter", 160, "The mouse cursor enters a hover item in a graphics scene(QGraphicsSceneHoverEvent).");
-    add_et("GraphicsSceneHoverLeave", 162, "The mouse cursor leaves a hover item in a graphics scene(QGraphicsSceneHoverEvent).");
-    add_et("GraphicsSceneHoverMove", 161, "The mouse cursor moves inside a hover item in a graphics scene(QGraphicsSceneHoverEvent).");
-    add_et("GraphicsSceneMouseDoubleClick", 158, "Mouse press again(double click) in a graphics scene(QGraphicsSceneMouseEvent).");
-    add_et("GraphicsSceneMouseMove", 155, "Move mouse in a graphics scene(QGraphicsSceneMouseEvent).");
-    add_et("GraphicsSceneMousePress", 156, "Mouse press in a graphics scene(QGraphicsSceneMouseEvent).");
-    add_et("GraphicsSceneMouseRelease", 157, "Mouse release in a graphics scene(QGraphicsSceneMouseEvent).");
-    add_et("GraphicsSceneMove", 182, "Widget was moved(QGraphicsSceneMoveEvent).");
-    add_et("GraphicsSceneResize", 181, "Widget was resized(QGraphicsSceneResizeEvent).");
-    add_et("GraphicsSceneWheel", 168, "Mouse wheel rolled in a graphics scene(QGraphicsSceneWheelEvent).");
-    add_et("Hide", 18, "Widget was hidden(QHideEvent).");
-    add_et("HideToParent", 27, "A child widget has been hidden.");
-    add_et("HoverEnter", 127, "The mouse cursor enters a hover widget(QHoverEvent).");
-    add_et("HoverLeave", 128, "The mouse cursor leaves a hover widget(QHoverEvent).");
-    add_et("HoverMove", 129, "The mouse cursor moves inside a hover widget(QHoverEvent).");
-    add_et("IconDrag", 96, "The main icon of a window has been dragged away(QIconDragEvent).");
-    add_et("IconTextChange", 101, "Widget's icon text has been changed.");
-    add_et("InputMethod", 83, "An input method is being used (QInputMethodEvent).");
-    add_et("InputMethodQuery", 207, "A input method query event (QInputMethodQueryEvent)");
-    add_et("KeyboardLayoutChange", 169, "The keyboard layout has changed.");
-    add_et("KeyPress", 6, "Key press (QKeyEvent).");
-    add_et("KeyRelease", 7, "Key release (QKeyEvent).");
-    add_et("LanguageChange", 89, "The application translation changed.");
-    add_et("LayoutDirectionChange", 90, "The direction of layouts changed.");
-    add_et("LayoutRequest", 76, "Widget layout needs to be redone.");
-    add_et("Leave", 11, "Mouse leaves widget's boundaries.");
-    add_et("LeaveEditFocus", 151, "An editor widget loses focus for editing. QT_KEYPAD_NAVIGATION must be defined.");
-    add_et("LeaveWhatsThisMode", 125, "Send to toplevel widgets when the application leaves WhatsThis mode.");
-    add_et("LocaleChange", 88, "The system locale has changed.");
-    add_et("NonClientAreaMouseButtonDblClick", 176, "A mouse double click occurred outside the client area.");
-    add_et("NonClientAreaMouseButtonPress", 174, "A mouse button press occurred outside the client area.");
-    add_et("NonClientAreaMouseButtonRelease", 175, "A mouse button release occurred outside the client area.");
-    add_et("NonClientAreaMouseMove", 173, "A mouse move occurred outside the client area.");
-    add_et("MacSizeChange", 177, "The user changed his widget sizes(OS X only).");
-    add_et("MetaCall", 43, "An asynchronous method invocation via QMetaObject::invokeMethod().");
-    add_et("ModifiedChange", 102, "Widgets modification state has been changed.");
-    add_et("MouseButtonDblClick", 4, "Mouse press again(QMouseEvent).");
-    add_et("MouseButtonPress", 2, "Mouse press(QMouseEvent).");
-    add_et("MouseButtonRelease", 3, "Mouse release(QMouseEvent).");
-    add_et("MouseMove", 5, "Mouse move(QMouseEvent).");
-    add_et("MouseTrackingChange", 109, "The mouse tracking state has changed.");
-    add_et("Move", 13, "Widget's position changed(QMoveEvent).");
-    add_et("NativeGesture", 197, "The system has detected a gesture(QNativeGestureEvent).");
-    add_et("OrientationChange", 208, "The screens orientation has changes(QScreenOrientationChangeEvent).");
-    add_et("Paint", 12, "Screen update necessary(QPaintEvent).");
-    add_et("PaletteChange", 39, "Palette of the widget changed.");
-    add_et("ParentAboutToChange", 131, "The widget parent is about to change.");
-    add_et("ParentChange", 21, "The widget parent has changed.");
-    add_et("PlatformPanel", 212, "A platform specific panel has been requested.");
-    add_et("PlatformSurface", 217, "A native platform surface has been created or is about to be destroyed(QPlatformSurfaceEvent).");
-    add_et("Polish", 75, "The widget is polished.");
-    add_et("PolishRequest", 74, "The widget should be polished.");
-    add_et("QueryWhatsThis", 123, "The widget should accept the event if it has WhatsThis help.");
-    add_et("ReadOnlyChange", 106, "Widget's read - only state has changed(since Qt 5.4).");
-    add_et("RequestSoftwareInputPanel", 199, "A widget wants to open a software input panel(SIP).");
-    add_et("Resize", 14, "Widget's size changed(QResizeEvent).");
-    add_et("ScrollPrepare", 204, "The object needs to fill in its geometry information(QScrollPrepareEvent).");
-    add_et("Scroll", 205, "The object needs to scroll to the supplied position(QScrollEvent).");
-    add_et("Shortcut", 117, "Key press in child for shortcut key handling(QShortcutEvent).");
-    add_et("ShortcutOverride", 51, "Key press in child, for overriding shortcut key handling(QKeyEvent).");
-    add_et("Show", 17, "Widget was shown on screen(QShowEvent).");
-    add_et("ShowToParent", 26, "A child widget has been shown.");
-    add_et("SockAct", 50, "Socket activated, used to implement QSocketNotifier.");
-    add_et("StateMachineSignal", 192, "A signal delivered to a state machine(QStateMachine::SignalEvent).");
-    add_et("StateMachineWrapped", 193, "The event is a wrapper for, i.e., contains, another event(QStateMachine::WrappedEvent).");
-    add_et("StatusTip", 112, "A status tip is requested(QStatusTipEvent).");
-    add_et("StyleChange", 100, "Widget's style has been changed.");
-    add_et("TabletMove", 87, "Wacom tablet move(QTabletEvent).");
-    add_et("TabletPress", 92, "Wacom tablet press(QTabletEvent).");
-    add_et("TabletRelease", 93, "Wacom tablet release(QTabletEvent).");
-    add_et("OkRequest", 94, "Ok button in decoration pressed. Supported only for Windows CE.");
-    add_et("TabletEnterProximity", 171, "Wacom tablet enter proximity event(QTabletEvent), sent to QApplication.");
-    add_et("TabletLeaveProximity", 172, "Wacom tablet leave proximity event(QTabletEvent), sent to QApplication.");
-    add_et("ThreadChange", 22, "The object is moved to another thread. This is the last event sent to this object in the previous thread. See QObject::moveToThread().");
-    add_et("Timer", 1, "Regular timer events(QTimerEvent).");
-    add_et("ToolBarChange", 120, "The toolbar button is toggled on OS X.");
-    add_et("ToolTip", 110, "A tooltip was requested(QHelpEvent).");
-    add_et("ToolTipChange", 184, "The widget's tooltip has changed.");
-    add_et("TouchBegin", 194, "Beginning of a sequence of touch - screen or track - pad events(QTouchEvent).");
-    add_et("TouchCancel", 209, "Cancellation of touch - event sequence(QTouchEvent).");
-    add_et("TouchEnd", 196, "End of touch - event sequence(QTouchEvent).");
-    add_et("TouchUpdate", 195, "Touch - screen event(QTouchEvent).");
-    add_et("UngrabKeyboard", 189, "Item loses keyboard grab(QGraphicsItem only).");
-    add_et("UngrabMouse", 187, "Item loses mouse grab(QGraphicsItem only).");
-    add_et("UpdateLater", 78, "The widget should be queued to be repainted at a later time.");
-    add_et("UpdateRequest", 77, "The widget should be repainted.");
-    add_et("WhatsThis", 111, "The widget should reveal WhatsThis help(QHelpEvent).");
-    add_et("WhatsThisClicked", 118, "A link in a widget's WhatsThis help was clicked.");
-    add_et("Wheel", 31, "Mouse wheel rolled(QWheelEvent).");
-    add_et("WinEventAct", 132, "A Windows - specific activation event has occurred.");
-    add_et("WindowActivate", 24, "Window was activated.");
-    add_et("WindowBlocked", 103, "The window is blocked by a modal dialog.");
-    add_et("WindowDeactivate", 25, "Window was deactivated.");
-    add_et("WindowIconChange", 34, "The window's icon has changed.");
-    add_et("WindowStateChange", 105, "The window's state(minimized, maximized or full - screen) has changed(QWindowStateChangeEvent).");
-    add_et("WindowTitleChange", 33, "The window title has changed.");
-    add_et("WindowUnblocked", 104, "The window is unblocked after a modal dialog exited.");
-    add_et("WinIdChange", 203, "The window system identifer for this native widget has changed.");
-    add_et("ZOrderChange", 126, "The widget's z - order has changed. This event is never sent to top level windows.");
-}
+#define MAXN 218
+static const event_type_info_t events_type_infos[MAXN] = {
+    {"None", "Not an event"}, // 0
+    {"Timer", "Regular timer events(QTimerEvent)"}, // 1
+    {"MouseButtonPress", "Mouse press(QMouseEvent)"}, // 2
+    {"MouseButtonRelease", "Mouse release(QMouseEvent)"}, // 3
+    {"MouseButtonDblClick", "Mouse press again(QMouseEvent)"}, // 4
+    {"MouseMove", "Mouse move(QMouseEvent)"}, // 5
+    {"KeyPress", "Key press (QKeyEvent)"}, // 6
+    {"KeyRelease", "Key release (QKeyEvent)"}, // 7
+    {"FocusIn", "Widget or Window gains keyboard focus (QFocusEvent)"}, // 8
+    {"FocusOut", "Widget or Window loses keyboard focus (QFocusEvent)"}, // 9
+    {"Enter", "Mouse enters widget's boundaries (QEnterEvent)"}, // 10
+    {"Leave", "Mouse leaves widget's boundaries"}, // 11
+    {"Paint", "Screen update necessary(QPaintEvent)"}, // 12
+    {"Move", "Widget's position changed(QMoveEvent)"}, // 13
+    {"Resize", "Widget's size changed(QResizeEvent)"}, // 14
+    {"UnknownEvent15", "UnknownEvent15"}, // 15
+    {"UnknownEvent16", "UnknownEvent16"}, // 16
+    {"Show", "Widget was shown on screen(QShowEvent)"}, // 17
+    {"Hide", "Widget was hidden(QHideEvent)"}, // 18
+    {"Close", "Widget was closed (QCloseEvent)"}, // 19
+    {"UnknownEvent20", "UnknownEvent20"}, // 20
+    {"ParentChange", "The widget parent has changed"}, // 21
+    {"ThreadChange", "The object is moved to another thread. This is the last event sent to this object in the previous thread. See QObject::moveToThread()"}, // 22
+    {"FocusAboutToChange", "Widget or Window focus is about to change (QFocusEvent)"}, // 23
+    {"WindowActivate", "Window was activated"}, // 24
+    {"WindowDeactivate", "Window was deactivated"}, // 25
+    {"ShowToParent", "A child widget has been shown"}, // 26
+    {"HideToParent", "A child widget has been hidden"}, // 27
+    {"UnknownEvent28", "UnknownEvent28"}, // 28
+    {"UnknownEvent29", "UnknownEvent29"}, // 29
+    {"UnknownEvent30", "UnknownEvent30"}, // 30
+    {"Wheel", "Mouse wheel rolled(QWheelEvent)"}, // 31
+    {"UnknownEvent32", "UnknownEvent32"}, // 32
+    {"WindowTitleChange", "The window title has changed"}, // 33
+    {"WindowIconChange", "The window's icon has changed"}, // 34
+    {"ApplicationWindowIconChange", "The application's icon has changed"}, // 35
+    {"ApplicationFontChange", "The default application font has changed"}, // 36
+    {"ApplicationLayoutDirectionChange", "The default application layout direction has changed"}, // 37
+    {"ApplicationPaletteChange", "The default application palette has changed"}, // 38
+    {"PaletteChange", "Palette of the widget changed"}, // 39
+    {"Clipboard", "The clipboard contents have changed"}, // 40
+    {"UnknownEvent41", "UnknownEvent41"}, // 41
+    {"UnknownEvent42", "UnknownEvent42"}, // 42
+    {"MetaCall", "An asynchronous method invocation via QMetaObject::invokeMethod()"}, // 43
+    {"UnknownEvent44", "UnknownEvent44"}, // 44
+    {"UnknownEvent45", "UnknownEvent45"}, // 45
+    {"UnknownEvent46", "UnknownEvent46"}, // 46
+    {"UnknownEvent47", "UnknownEvent47"}, // 47
+    {"UnknownEvent48", "UnknownEvent48"}, // 48
+    {"UnknownEvent49", "UnknownEvent49"}, // 49
+    {"SockAct", "Socket activated, used to implement QSocketNotifier"}, // 50
+    {"ShortcutOverride", "Key press in child, for overriding shortcut key handling(QKeyEvent)"}, // 51
+    {"DeferredDelete", "The object will be deleted after it has cleaned up (QDeferredDeleteEvent)"}, // 52
+    {"UnknownEvent53", "UnknownEvent53"}, // 53
+    {"UnknownEvent54", "UnknownEvent54"}, // 54
+    {"UnknownEvent55", "UnknownEvent55"}, // 55
+    {"UnknownEvent56", "UnknownEvent56"}, // 56
+    {"UnknownEvent57", "UnknownEvent57"}, // 57
+    {"UnknownEvent58", "UnknownEvent58"}, // 58
+    {"UnknownEvent59", "UnknownEvent59"}, // 59
+    {"DragEnter", "The cursor enters a widget during a drag and drop operation (QDragEnterEvent)"}, // 60
+    {"DragMove", "A drag and drop operation is in progress (QDragMoveEvent)"}, // 61
+    {"DragLeave", "The cursor leaves a widget during a drag and drop operation (QDragLeaveEvent)"}, // 62
+    {"Drop", "A drag and drop operation is completed (QDropEvent)"}, // 63
+    {"UnknownEvent64", "UnknownEvent64"}, // 64
+    {"UnknownEvent65", "UnknownEvent65"}, // 65
+    {"UnknownEvent66", "UnknownEvent66"}, // 66
+    {"UnknownEvent67", "UnknownEvent67"}, // 67
+    {"ChildAdded", "An object gets a child (QChildEvent)"}, // 68
+    {"ChildPolished", "A widget child gets polished (QChildEvent)"}, // 69
+    {"UnknownEvent70", "UnknownEvent70"}, // 70
+    {"ChildRemoved", "An object loses a child (QChildEvent)"}, // 71
+    {"UnknownEvent72", "UnknownEvent72"}, // 72
+    {"UnknownEvent73", "UnknownEvent73"}, // 73
+    {"PolishRequest", "The widget should be polished"}, // 74
+    {"Polish", "The widget is polished"}, // 75
+    {"LayoutRequest", "Widget layout needs to be redone"}, // 76
+    {"UpdateRequest", "The widget should be repainted"}, // 77
+    {"UpdateLater", "The widget should be queued to be repainted at a later time"}, // 78
+    {"UnknownEvent79", "UnknownEvent79"}, // 79
+    {"UnknownEvent80", "UnknownEvent80"}, // 80
+    {"UnknownEvent81", "UnknownEvent81"}, // 81
+    {"ContextMenu", "Context popup menu (QContextMenuEvent)"}, // 82
+    {"InputMethod", "An input method is being used (QInputMethodEvent)"}, // 83
+    {"UnknownEvent84", "UnknownEvent84"}, // 84
+    {"UnknownEvent85", "UnknownEvent85"}, // 85
+    {"UnknownEvent86", "UnknownEvent86"}, // 86
+    {"TabletMove", "Wacom tablet move(QTabletEvent)"}, // 87
+    {"LocaleChange", "The system locale has changed"}, // 88
+    {"LanguageChange", "The application translation changed"}, // 89
+    {"LayoutDirectionChange", "The direction of layouts changed"}, // 90
+    {"UnknownEvent91", "UnknownEvent91"}, // 91
+    {"TabletPress", "Wacom tablet press(QTabletEvent)"}, // 92
+    {"TabletRelease", "Wacom tablet release(QTabletEvent)"}, // 93
+    {"OkRequest", "Ok button in decoration pressed. Supported only for Windows CE"}, // 94
+    {"UnknownEvent95", "UnknownEvent95"}, // 95
+    {"IconDrag", "The main icon of a window has been dragged away(QIconDragEvent)"}, // 96
+    {"FontChange", "Widget's font has changed"}, // 97
+    {"EnabledChange", "Widget's enabled state has changed"}, // 98
+    {"ActivationChange", "A widget's top-level window activation state has changed"}, // 99
+    {"StyleChange", "Widget's style has been changed"}, // 100
+    {"IconTextChange", "Widget's icon text has been changed"}, // 101
+    {"ModifiedChange", "Widgets modification state has been changed"}, // 102
+    {"WindowBlocked", "The window is blocked by a modal dialog"}, // 103
+    {"WindowUnblocked", "The window is unblocked after a modal dialog exited"}, // 104
+    {"WindowStateChange", "The window's state(minimized, maximized or full - screen) has changed(QWindowStateChangeEvent)"}, // 105
+    {"ReadOnlyChange", "Widget's read - only state has changed(since Qt 5.4)"}, // 106
+    {"UnknownEvent107", "UnknownEvent107"}, // 107
+    {"UnknownEvent108", "UnknownEvent108"}, // 108
+    {"MouseTrackingChange", "The mouse tracking state has changed"}, // 109
+    {"ToolTip", "A tooltip was requested(QHelpEvent)"}, // 110
+    {"WhatsThis", "The widget should reveal WhatsThis help(QHelpEvent)"}, // 111
+    {"StatusTip", "A status tip is requested(QStatusTipEvent)"}, // 112
+    {"ActionChanged", "An action has been changed (QActionEvent)"}, // 113
+    {"ActionAdded", "A new action has been added (QActionEvent)"}, // 114
+    {"ActionRemoved", "An action has been removed (QActionEvent)"}, // 115
+    {"FileOpen", "File open request (QFileOpenEvent)"}, // 116
+    {"Shortcut", "Key press in child for shortcut key handling(QShortcutEvent)"}, // 117
+    {"WhatsThisClicked", "A link in a widget's WhatsThis help was clicked"}, // 118
+    {"UnknownEvent119", "UnknownEvent119"}, // 119
+    {"ToolBarChange", "The toolbar button is toggled on OS X"}, // 120
+    {"ApplicationActivate", "This enum has been deprecated. Use ApplicationStateChange instead"}, // 121
+    {"ApplicationDeactivate", "This enum has been deprecated. Use ApplicationStateChange instead"}, // 122
+    {"QueryWhatsThis", "The widget should accept the event if it has WhatsThis help"}, // 123
+    {"EnterWhatsThisMode", "Send to toplevel widgets when the application enters WhatsThis mode"}, // 124
+    {"LeaveWhatsThisMode", "Send to toplevel widgets when the application leaves WhatsThis mode"}, // 125
+    {"ZOrderChange", "The widget's z - order has changed. This event is never sent to top level windows"}, // 126
+    {"HoverEnter", "The mouse cursor enters a hover widget(QHoverEvent)"}, // 127
+    {"HoverLeave", "The mouse cursor leaves a hover widget(QHoverEvent)"}, // 128
+    {"HoverMove", "The mouse cursor moves inside a hover widget(QHoverEvent)"}, // 129
+    {"UnknownEvent130", "UnknownEvent130"}, // 130
+    {"ParentAboutToChange", "The widget parent is about to change"}, // 131
+    {"WinEventAct", "A Windows - specific activation event has occurred"}, // 132
+    {"UnknownEvent133", "UnknownEvent133"}, // 133
+    {"UnknownEvent134", "UnknownEvent134"}, // 134
+    {"UnknownEvent135", "UnknownEvent135"}, // 135
+    {"UnknownEvent136", "UnknownEvent136"}, // 136
+    {"UnknownEvent137", "UnknownEvent137"}, // 137
+    {"UnknownEvent138", "UnknownEvent138"}, // 138
+    {"UnknownEvent139", "UnknownEvent139"}, // 139
+    {"UnknownEvent140", "UnknownEvent140"}, // 140
+    {"UnknownEvent141", "UnknownEvent141"}, // 141
+    {"UnknownEvent142", "UnknownEvent142"}, // 142
+    {"UnknownEvent143", "UnknownEvent143"}, // 143
+    {"UnknownEvent144", "UnknownEvent144"}, // 144
+    {"UnknownEvent145", "UnknownEvent145"}, // 145
+    {"UnknownEvent146", "UnknownEvent146"}, // 146
+    {"UnknownEvent147", "UnknownEvent147"}, // 147
+    {"UnknownEvent148", "UnknownEvent148"}, // 148
+    {"UnknownEvent149", "UnknownEvent149"}, // 149
+    {"EnterEditFocus", "An editor widget gains focus for editing. QT_KEYPAD_NAVIGATION must be defined"}, // 150
+    {"LeaveEditFocus", "An editor widget loses focus for editing. QT_KEYPAD_NAVIGATION must be defined"}, // 151
+    {"UnknownEvent152", "UnknownEvent152"}, // 152
+    {"UnknownEvent153", "UnknownEvent153"}, // 153
+    {"UnknownEvent154", "UnknownEvent154"}, // 154
+    {"GraphicsSceneMouseMove", "Move mouse in a graphics scene(QGraphicsSceneMouseEvent)"}, // 155
+    {"GraphicsSceneMousePress", "Mouse press in a graphics scene(QGraphicsSceneMouseEvent)"}, // 156
+    {"GraphicsSceneMouseRelease", "Mouse release in a graphics scene(QGraphicsSceneMouseEvent)"}, // 157
+    {"GraphicsSceneMouseDoubleClick", "Mouse press again(double click) in a graphics scene(QGraphicsSceneMouseEvent)"}, // 158
+    {"GraphicsSceneContextMenu", "Context popup menu over a graphics scene(QGraphicsSceneContextMenuEvent)"}, // 159
+    {"GraphicsSceneHoverEnter", "The mouse cursor enters a hover item in a graphics scene(QGraphicsSceneHoverEvent)"}, // 160
+    {"GraphicsSceneHoverMove", "The mouse cursor moves inside a hover item in a graphics scene(QGraphicsSceneHoverEvent)"}, // 161
+    {"GraphicsSceneHoverLeave", "The mouse cursor leaves a hover item in a graphics scene(QGraphicsSceneHoverEvent)"}, // 162
+    {"GraphicsSceneHelp", "The user requests help for a graphics scene(QHelpEvent)"}, // 163
+    {"GraphicsSceneDragEnter", "The cursor enters a graphics scene during a drag and drop operation(QGraphicsSceneDragDropEvent)"}, // 164
+    {"GraphicsSceneDragMove", "A drag and drop operation is in progress over a scene(QGraphicsSceneDragDropEvent)"}, // 165
+    {"GraphicsSceneDragLeave", "The cursor leaves a graphics scene during a drag and drop operation(QGraphicsSceneDragDropEvent)"}, // 166
+    {"GraphicsSceneDrop", "A drag and drop operation is completed over a scene(QGraphicsSceneDragDropEvent)"}, // 167
+    {"GraphicsSceneWheel", "Mouse wheel rolled in a graphics scene(QGraphicsSceneWheelEvent)"}, // 168
+    {"KeyboardLayoutChange", "The keyboard layout has changed"}, // 169
+    {"DynamicPropertyChange", "A dynamic property was added, changed, or removed from the object"}, // 170
+    {"TabletEnterProximity", "Wacom tablet enter proximity event(QTabletEvent), sent to QApplication"}, // 171
+    {"TabletLeaveProximity", "Wacom tablet leave proximity event(QTabletEvent), sent to QApplication"}, // 172
+    {"NonClientAreaMouseMove", "A mouse move occurred outside the client area"}, // 173
+    {"NonClientAreaMouseButtonPress", "A mouse button press occurred outside the client area"}, // 174
+    {"NonClientAreaMouseButtonRelease", "A mouse button release occurred outside the client area"}, // 175
+    {"NonClientAreaMouseButtonDblClick", "A mouse double click occurred outside the client area"}, // 176
+    {"MacSizeChange", "The user changed his widget sizes(OS X only)"}, // 177
+    {"ContentsRectChange", "The margins of the widget's content rect changed"}, // 178
+    {"UnknownEvent179", "UnknownEvent179"}, // 179
+    {"UnknownEvent180", "UnknownEvent180"}, // 180
+    {"GraphicsSceneResize", "Widget was resized(QGraphicsSceneResizeEvent)"}, // 181
+    {"GraphicsSceneMove", "Widget was moved(QGraphicsSceneMoveEvent)"}, // 182
+    {"CursorChange", "The widget's cursor has changed"}, // 183
+    {"ToolTipChange", "The widget's tooltip has changed"}, // 184
+    {"UnknownEvent185", "UnknownEvent185"}, // 185
+    {"GrabMouse", "Item gains mouse grab(QGraphicsItem only)"}, // 186
+    {"UngrabMouse", "Item loses mouse grab(QGraphicsItem only)"}, // 187
+    {"GrabKeyboard", "Item gains keyboard grab(QGraphicsItem only)"}, // 188
+    {"UngrabKeyboard", "Item loses keyboard grab(QGraphicsItem only)"}, // 189
+    {"UnknownEvent190", "UnknownEvent190"}, // 190
+    {"UnknownEvent191", "UnknownEvent191"}, // 191
+    {"StateMachineSignal", "A signal delivered to a state machine(QStateMachine::SignalEvent)"}, // 192
+    {"StateMachineWrapped", "The event is a wrapper for, i.e., contains, another event(QStateMachine::WrappedEvent)"}, // 193
+    {"TouchBegin", "Beginning of a sequence of touch - screen or track - pad events(QTouchEvent)"}, // 194
+    {"TouchUpdate", "Touch - screen event(QTouchEvent)"}, // 195
+    {"TouchEnd", "End of touch - event sequence(QTouchEvent)"}, // 196
+    {"NativeGesture", "The system has detected a gesture(QNativeGestureEvent)"}, // 197
+    {"Gesture", "A gesture was triggered(QGestureEvent)"}, // 198
+    {"RequestSoftwareInputPanel", "A widget wants to open a software input panel(SIP)"}, // 199
+    {"CloseSoftwareInputPanel", "A widget wants to close the software input panel (SIP)"}, // 200
+    {"UnknownEvent201", "UnknownEvent201"}, // 201
+    {"GestureOverride", "A gesture override was triggered(QGestureEvent)"}, // 202
+    {"WinIdChange", "The window system identifer for this native widget has changed"}, // 203
+    {"ScrollPrepare", "The object needs to fill in its geometry information(QScrollPrepareEvent)"}, // 204
+    {"Scroll", "The object needs to scroll to the supplied position(QScrollEvent)"}, // 205
+    {"Expose", "Sent to a window when its on-screen contents are invalidated and need to be flushed from the backing store"}, // 206
+    {"InputMethodQuery", "A input method query event (QInputMethodQueryEvent)"}, // 207
+    {"OrientationChange", "The screens orientation has changes(QScreenOrientationChangeEvent)"}, // 208
+    {"TouchCancel", "Cancellation of touch - event sequence(QTouchEvent)"}, // 209
+    {"UnknownEvent210", "UnknownEvent210"}, // 210
+    {"UnknownEvent211", "UnknownEvent211"}, // 211
+    {"PlatformPanel", "A platform specific panel has been requested"}, // 212
+    {"UnknownEvent213", "UnknownEvent213"}, // 213
+    {"ApplicationStateChange", "The state of the application has changed"}, // 214
+    {"UnknownEvent215", "UnknownEvent215"}, // 215
+    {"UnknownEvent216", "UnknownEvent216"}, // 216
+    {"PlatformSurface", "A native platform surface has been created or is about to be destroyed(QPlatformSurfaceEvent)"}, // 217
+};
 
 char const *event_type_2_name(int e)
 {
-    init();
-    int n = e_to_N(e);
-
     if(e < 0) {
-        return NULL;
+        PROGRAMMERERROR("event_type_2_name: given invalid type %d", e);
     }
 
-    return events_infos[n].name;
+    if(e >= 1000 && e <= 65535) {
+        return "UserEvent";
+    }
+
+    if(e >= MAXN) {
+        return "UnknownLargeEvent";
+    }
+
+    char const *name = events_type_infos[e].name;
+
+    if(name == NULL) {
+        return "UnknownEvent";
+    }
+
+    return name;
 }
 char const *event_type_2_desc(int e)
 {
-    init();
-    int n = e_to_N(e);
-
     if(e < 0) {
-        return NULL;
+        PROGRAMMERERROR("event_type_2_desc: given invalid type %d", e);
     }
 
-    return events_infos[n].desc;
+    if(e >= 1000 && e <= 65535) {
+        return "UserEvent";
+    }
+
+    if(e >= MAXN) {
+        return "UnknownLargeEvent";
+    }
+
+    char const *desc = events_type_infos[e].desc;
+
+    if(desc == NULL) {
+        return "UnknownEvent";
+    }
+
+    return desc;
 }

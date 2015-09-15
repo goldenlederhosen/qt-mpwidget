@@ -9,7 +9,8 @@
 #include "singleqprocess.h"
 #include "util.h"
 
-class SingleQProcessSingleshot : public QObject {
+class SingleQProcessSingleshot : public QObject
+{
     Q_OBJECT
 
 private:
@@ -24,7 +25,8 @@ private:
     QString m_exe;
     QStringList m_args;
 
-    void check_is_finished() const {
+    void check_is_finished() const
+    {
         if(!started) {
             PROGRAMMERERROR("trying to get results, but start not called?");
         }
@@ -43,11 +45,13 @@ public:
         , prog(NULL)
         , started(false)
         , finished(false)
-        , m_success(false) {
+        , m_success(false)
+    {
         setObjectName(QLatin1String(in_oname));
     }
 
-    virtual ~SingleQProcessSingleshot() {
+    virtual ~SingleQProcessSingleshot()
+    {
         if(prog != NULL) {
             delete prog;
             prog = NULL;
@@ -56,23 +60,28 @@ public:
 
     bool run(const QString &exe, const QStringList &args, int waitmsecs, QString &error);
 
-    bool get_success() const {
+    bool get_success() const
+    {
         check_is_finished();
         return m_success;
     }
-    const QString &get_errstr() const {
+    const QString &get_errstr() const
+    {
         check_is_finished();
         return m_errstr;
     }
-    const QString &get_output() const {
+    const QString &get_output() const
+    {
         check_is_finished();
         return m_output;
     }
-    const QString &get_exe() const {
+    const QString &get_exe() const
+    {
         check_is_finished();
         return m_exe;
     }
-    const QStringList &get_args() const {
+    const QStringList &get_args() const
+    {
         check_is_finished();
         return m_args;
     }

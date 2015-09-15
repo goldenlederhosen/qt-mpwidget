@@ -13,3 +13,9 @@ MpPlainVideoWidget::MpPlainVideoWidget(QWidget *parent): QWidget(parent)
     setObjectName(QLatin1String("QMPWidget_videotarget"));
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
+QPaintEngine *MpPlainVideoWidget::paintEngine() const
+{
+    return NULL;
+}
+#endif

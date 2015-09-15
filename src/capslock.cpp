@@ -1,5 +1,11 @@
 #include "capslock.h"
+
 #include <QtGlobal>
+
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "CAPSLOCK"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 #if defined Q_WS_WIN
 # include <windows.h>
@@ -19,18 +25,6 @@
 # undef FocusOut
 #else
 # error Unsupported window system
-#endif
-
-#define DEBUG_CAPSLOCK
-
-#ifdef DEBUG_ALL
-#define DEBUG_CAPSLOCK
-#endif
-
-#ifdef DEBUG_CAPSLOCK
-#define MYDBG(msg, ...) qDebug("CAPSLOCK " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
 #endif
 
 bool checkCapsLock()

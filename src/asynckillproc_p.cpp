@@ -8,18 +8,10 @@
 #include "asynckillproc_p.h"
 #include "util.h"
 
-//#define DEBUG_AKP
-
-#ifdef DEBUG_ALL
-#define DEBUG_AKP
-#endif
-
-#ifdef DEBUG_AKP
-#define MYDBG(msg, ...) qDebug("%s AKP on PID=%d TID=%d " msg, m_context, m_pid, m_tid, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
-
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "AKP"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, "%s on PID=%d TID=%d " msg, m_context, m_pid, m_tid, ##__VA_ARGS__)
 
 AsyncKillProcess_Private::AsyncKillProcess_Private(const pid_t &in_pid, char const *const in_kreason, char const *const in_context):
     QThread(NULL),

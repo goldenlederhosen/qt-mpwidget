@@ -5,17 +5,10 @@
 #include <QVariant>
 #include <QStringList>
 
-#define DEBUG_DBUS
-
-#ifdef DEBUG_ALL
-#define DEBUG_DBUS
-#endif
-
-#ifdef DEBUG_DBUS
-#define MYDBG(msg, ...) qDebug("DBUS " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "DBUS"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 static QString QVariant_to_string(const QVariant &v)
 {
@@ -52,10 +45,12 @@ static QString QDBusMessage_argdesc(const QDBusMessage &m)
 {
     const  QList<QVariant> args = m.arguments();
     QStringList argss;
-    foreach(const QVariant & v, args) {
+
+    foreach(const QVariant &v, args) {
         const QString s = QVariant_to_string(v);
         argss.append(s);
     }
+
     const QString args_desc = argss.join(QLatin1String(", "));
     return args_desc;
 }

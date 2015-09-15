@@ -5,7 +5,8 @@
 #include <QByteArray>
 #include <QStringList>
 
-class AsyncReadFile {
+class AsyncReadFile
+{
 private:
     QString m_ofn;
     QString m_fn;
@@ -36,22 +37,7 @@ private:
     bool xwaitpid(int &pid, QStringList *errors, bool *pgot_pid_change);
 
 public:
-    AsyncReadFile(const QString &in_fn, bool in_getc, off_t in_maxreadsize):
-        m_ofn(in_fn)
-        , m_getc(in_getc)
-        , m_maxreadsize(in_maxreadsize)
-        , c_filename(NULL)
-        , m_done_pipefork(false)
-        , m_msgfd(-1)
-        , m_contentfd(-1)
-        , m_pid(0)
-        , m_done(false)
-        , errmsg_bufsize(16384)
-        , fileread_bufsize(65536)
-        , pipe_bufsize(16384)
-        , m_errmsg_buffer(NULL)
-        , m_content_buffer_pipe_from_child(NULL) {
-    }
+    AsyncReadFile(const QString &in_fn, bool in_getc, off_t in_maxreadsize);
     ~AsyncReadFile();
     bool iter(QStringList *errors, QByteArray *contents, bool *p_made_progress);
     void finish();

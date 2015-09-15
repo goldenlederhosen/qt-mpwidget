@@ -15,21 +15,39 @@
 #include "encoding.h"
 #include "asynckillproc.h"
 
-//#define DEBUG_CLF
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "CLF"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
-#ifdef DEBUG_ALL
-#define DEBUG_CLF
-#endif
+static bool CLF_DEBUG_enabled;
 
-#ifdef DEBUG_CLF
-#  define MYDBG(msg, ...)    qDebug("CLF " msg, ##__VA_ARGS__)
-#  define ASFMYDBG(msg, ...) fprintf(stderr, "CLF P  %s " msg "\n", qPrintable(m_ofn.right(20)), ##__VA_ARGS__)
-#  define CLDMYDBG(msg, ...) fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__)
-#else
-#  define MYDBG(msg, ...)
-#  define ASFMYDBG(msg, ...)
-#  define CLDMYDBG(msg, ...)
-#endif
+static void init_CLF_DEBUG_enabled()
+{
+    CLF_DEBUG_enabled = category().isDebugEnabled();
+}
+
+#define ASFMYDBG(msg, ...) do{if(CLF_DEBUG_enabled){fprintf(stderr, "CLF P  %s " msg "\n", qPrintable(m_ofn.right(20)), ##__VA_ARGS__);}}while(0)
+#define CLDMYDBG(msg, ...) do{if(CLF_DEBUG_enabled){fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__);}}while(0)
+
+AsyncReadFile::AsyncReadFile(const QString &in_fn, bool in_getc, off_t in_maxreadsize):
+    m_ofn(in_fn)
+    , m_getc(in_getc)
+    , m_maxreadsize(in_maxreadsize)
+    , c_filename(NULL)
+    , m_done_pipefork(false)
+    , m_msgfd(-1)
+    , m_contentfd(-1)
+    , m_pid(0)
+    , m_done(false)
+    , errmsg_bufsize(16384)
+    , fileread_bufsize(65536)
+    , pipe_bufsize(16384)
+    , m_errmsg_buffer(NULL)
+    , m_content_buffer_pipe_from_child(NULL)
+{
+    init_CLF_DEBUG_enabled();
+}
 
 QString AsyncReadFile::make_latin1_errmsg(int errno_copy, char const *const fmt, ...)  const
 {
@@ -241,6 +259,8 @@ bool AsyncReadFile::xwaitpid(int &pid, QStringList *errors, bool *pgot_pid_chang
 
 bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_made_progress)
 {
+    init_CLF_DEBUG_enabled();
+
     *p_made_progress = true;
 
     if(m_ofn.isEmpty()) {
@@ -328,7 +348,7 @@ bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_
             }
 
             // pipe write, file read
-            child_read_file(c_filename, c_filename_short, msgfd_h, fds_content[PIPE_WRITE], m_maxreadsize, pipe_bufsize, fileread_bufsize);
+            child_read_file(c_filename, c_filename_short, msgfd_h, fds_content[PIPE_WRITE], m_maxreadsize, pipe_bufsize, fileread_bufsize, CLF_DEBUG_enabled);
             // should never return
         }
 
@@ -430,6 +450,8 @@ bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_
 
 void AsyncReadFile::finish()
 {
+    init_CLF_DEBUG_enabled();
+
     if(!m_ofn.isEmpty()) {
         ASFMYDBG("finish");
     }
@@ -467,6 +489,8 @@ AsyncReadFile::~AsyncReadFile()
 
 void async_slurp_file(const QString &url, QStringList &errors, QByteArray &contents, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
+    init_CLF_DEBUG_enabled();
+
     MYDBG("async_slurp_file: %s, fail after %lu msec", qPrintable(url), (unsigned long)wholetimeout_msec);
 
     AsyncReadFile ASF(url, true, -1);
@@ -507,6 +531,8 @@ void async_slurp_file(const QString &url, QStringList &errors, QByteArray &conte
 
 QString try_load_start_of_file(const QString &url, const off_t maxreadsize, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
+
+    init_CLF_DEBUG_enabled();
 
     MYDBG("try_load_start_of_file: %s, read first %lu bytes, fail after %lu msec", qPrintable(url), (unsigned long)maxreadsize, (unsigned long)wholetimeout_msec);
 

@@ -19,17 +19,10 @@
 #include "config.h"
 #include "encoding.h"
 
-#define DEBUG_SYS
-
-#ifdef DEBUG_ALL
-#define DEBUG_SYS
-#endif
-
-#ifdef DEBUG_SYS
-#define MYDBG(msg, ...) qDebug("SYS " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "SYS"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 static const int timeout_dvdrwmediainfo_msec = 3000;
 static const int timeout_isoinfo_msec = 3000;
@@ -94,7 +87,8 @@ static bool fs_looks_like_vdvd(const QString &dev, QStringList &erracc)
     QStringList lines = out.split(QLatin1Char('\n'));
 
     const QString VIDEOTS = QLatin1String("/VIDEO_TS/");
-    foreach(const QString & l, lines) {
+
+    foreach(const QString &l, lines) {
         if(l.indexOf(VIDEOTS) == 0) {
             return true;
         }
@@ -290,7 +284,8 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         title = QLatin1String("Found multiple video DVDs");
         QStringList erracc;
         body = QLatin1String("Found video DVDs\n");
-        foreach(const QString & dev, candidates) {
+
+        foreach(const QString &dev, candidates) {
             QString t;
 
             if(dev_2_title(dev, t, erracc)) {
@@ -300,6 +295,7 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
                 body += QLatin1String("   ") + dev + QLatin1String("\n");
             }
         }
+
         technical = erracc.join(QLatin1String("\n"));
         return false;
     }
@@ -341,7 +337,8 @@ void add_exe_dir_to_PATH(char const *argv0)
     PATH_l.removeDuplicates();
 
     bool found_missing = false;
-    foreach(const QString & d, dirs_to_add) {
+
+    foreach(const QString &d, dirs_to_add) {
         if(!PATH_l.contains(d)) {
             PATH_l.append(d);
             found_missing = true;

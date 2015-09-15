@@ -94,6 +94,7 @@ void commandlineMessageOutput(QtMsgType type, const char *msg);
 
 class QWidget;
 void set_focus_raise(QWidget *w);
+QString widget_2_name(QWidget *w);
 
 
 

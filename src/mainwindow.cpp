@@ -19,17 +19,10 @@
 #include "system.h"
 #include "remote_local.h"
 
-#define DEBUG_IV
-
-#ifdef DEBUG_ALL
-#define DEBUG_IV
-#endif
-
-#ifdef DEBUG_IV
-#define MYDBG(msg, ...) qDebug("IV " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "MAIN"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 // most of episode watched if we stopped
 // not earlier than so many seconds before the end
@@ -324,7 +317,7 @@ void PlayerWindow::slot_MP_error_while(QString reason, QString url, MpMediaInfo 
 void PlayerWindow::slot_MP_state_changed(MpState oldstate, MpState newstate)
 {
     Q_UNUSED(oldstate);
-    qDebug("IV: MP state changed from %s to %s at %g/%g", convert_MpState_2_asciidesc(oldstate), convert_MpState_2_asciidesc(newstate), MP->current_position(), MP->mediaInfo().has_length() ? MP->mediaInfo().length() : (-1.));
+    MYDBG("IV: MP state changed from %s to %s at %g/%g", convert_MpState_2_asciidesc(oldstate), convert_MpState_2_asciidesc(newstate), MP->current_position(), MP->mediaInfo().has_length() ? MP->mediaInfo().length() : (-1.));
 
     switch(newstate) {
         case MpState::NotStartedState:

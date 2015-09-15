@@ -1,17 +1,10 @@
 #include "cropdetector.h"
 #include "safe_signals.h"
 
-#define DEBUG_CROPD
-
-#ifdef DEBUG_ALL
-#define DEBUG_CROPD
-#endif
-
-#ifdef DEBUG_CROPD
-#define MYDBG(msg, ...) qDebug("CD " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "CD"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 CropDetector::CropDetector(QObject *parent, QString in_mfn) :
     QObject(parent),

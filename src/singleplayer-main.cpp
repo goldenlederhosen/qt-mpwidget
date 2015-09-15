@@ -6,22 +6,16 @@
 #include <QLatin1String>
 #include <QHash>
 #include <QCommandLineParser>
+#include <QLoggingCategory>
 
 #include "mainwindow.h"
 #include "capslock.h"
 #include "system.h"
 
-//#define DEBUG_MAIN
-
-#ifdef DEBUG_ALL
-#define DEBUG_MAIN
-#endif
-
-#ifdef DEBUG_MAIN
-#define MYDBG(msg, ...) qDebug("MAIN " msg, ##__VA_ARGS__)
-#else
-#define MYDBG(msg, ...)
-#endif
+//#include <QLoggingCategory>
+//#define THIS_SOURCE_FILE_LOG_CATEGORY "MAIN"
+//static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+//#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 static void usage(const QString &in_msg = QString())
 {
@@ -42,6 +36,7 @@ static void usage(const QString &in_msg = QString())
               "MP_OPTS_OVERRIDE - mplayer command line options\n"
               "MP_VO            - mplayer -vo option\n"
               "CROP             - mplayer-like crop string\n"
+              "QT_LOGGING_RULES - change default logging"
               "\n"
               "Booleans:\n"
               "SIL_MEASURE_LATENCY\n"
@@ -49,8 +44,6 @@ static void usage(const QString &in_msg = QString())
               "IV_NO_EPISODE_AUTOADVANCE\n"
               "MC_DO_SHOW_VIDEO_SIZE\n"
               "MC_FULL_TAGS\n"
-              "QMP_PRINT_CRAP_OUTPUT\n"
-              "QMP_PRINT_STATUS_OUTPUT\n"
               , qPrintable(msg)
               , qPrintable(qApp->applicationFilePath())
              );
@@ -140,6 +133,26 @@ void parse_commandline(QCoreApplication &app
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    // override with QT_LOGGING_RULES
+    QLoggingCategory::setFilterRules(QStringLiteral(
+                                         "*.debug=false\n"
+                                         "BADLOG=true\n"
+                                         "CAPSLOCK=true\n"
+                                         "CFG=true\n"
+                                         "DBUS=true\n"
+                                         "ENCODING=true\n"
+                                         "EC=true\n"
+                                         "IV=true\n"
+                                         "OQ=true\n"
+                                         "SL=true\n"
+                                         "MAIN=true\n"
+                                         "MMPIMP=true\n"
+                                         "REMLOC=true\n"
+                                         "SSMN=true\n"
+                                         "SYS=true\n"
+                                         "UTIL=true\n"
+                                     ));
 
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
 

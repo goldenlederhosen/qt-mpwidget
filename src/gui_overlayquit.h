@@ -10,7 +10,8 @@ QT_END_NAMESPACE
 
 // OverlayQuit
 
-class OverlayQuit: public QWidget {
+class OverlayQuit: public QWidget
+{
     Q_OBJECT
 
 private:
