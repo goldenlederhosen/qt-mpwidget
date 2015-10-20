@@ -12,9 +12,9 @@
 
 #define CLDMYDBG(msg, ...) do{if(dodebug){fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__);}}while(0)
 
-const int sleep_if_read_not_ready_usec = 1000;
-const int sleep_if_pipe_full_usec = 1000;
-const int sleep_after_successful_write_usec = 0;
+static_var const int sleep_if_read_not_ready_usec = 1000;
+static_var const int sleep_if_pipe_full_usec = 1000;
+static_var const int sleep_after_successful_write_usec = 0;
 
 template<typename T>
 static inline T MIN(const T a, const T b)
@@ -47,18 +47,26 @@ static void childexit(bool succ, FILE *fh, char const *const c_filename_short, b
 
 static void childerrfatal(FILE *errmsg_write_fh, char const *const c_filename_short, bool dodebug, char const *fmt, ...)
 {
-    va_list ap;
-    va_start(ap, fmt);
+    {
+        va_list ap1;
+        va_start(ap1, fmt);
 
-    fprintf(stderr, "%s CLF C erroring with ", c_filename_short);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-
-    if(vfprintf(errmsg_write_fh, fmt, ap) <= 0) {
-        fprintf(stderr, "could not write error message to channel FD=%d: %s", fileno(errmsg_write_fh), strerror(errno));
+        ::fprintf(stderr, "%s CLF C erroring with ", c_filename_short);
+        ::vfprintf(stderr, fmt, ap1);
+        ::fprintf(stderr, "\n");
+        va_end(ap1);
     }
 
-    va_end(ap);
+    {
+        va_list ap2;
+        va_start(ap2, fmt);
+
+        if(::vfprintf(errmsg_write_fh, fmt, ap2) <= 0) {
+            ::fprintf(stderr, "could not write error message to channel FD=%d: %s", fileno(errmsg_write_fh), strerror(errno));
+        }
+
+        va_end(ap2);
+    }
 
     childexit(false, errmsg_write_fh, c_filename_short, dodebug);
 }
@@ -147,23 +155,23 @@ void child_read_file(char const *const c_filename, char const *const c_filename_
     }
 
     if(file_read_blocksize <= 0) {
-        qFatal("file blocksize negative/0?");
+        PROGRAMMERERROR("file blocksize negative/0?");
     }
 
     if(file_write_fd >= 0) {
         if(pipe_write_blocksize <= 0) {
-            qFatal("pipe blocksize negative/0?");
+            PROGRAMMERERROR("pipe blocksize negative/0?");
         }
 
         if(pipe_write_blocksize > file_read_blocksize) {
-            qFatal("pipe blocksize needs to be smaller or equal to file blocksize");
+            PROGRAMMERERROR("pipe blocksize needs to be smaller or equal to file blocksize");
         }
 
         {
             const int file_to_pipe = file_read_blocksize / pipe_write_blocksize;
 
             if(file_to_pipe * pipe_write_blocksize != file_read_blocksize) {
-                qFatal("file blocksize needs to be a multiple of pipe blocksize");
+                PROGRAMMERERROR("file blocksize needs to be a multiple of pipe blocksize");
             }
         }
     }

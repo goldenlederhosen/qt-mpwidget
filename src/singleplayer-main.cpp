@@ -7,15 +7,105 @@
 #include <QHash>
 #include <QCommandLineParser>
 #include <QLoggingCategory>
+#include <QMutex>
+#include <signal.h>
 
 #include "mainwindow.h"
 #include "capslock.h"
 #include "system.h"
+#include "logging.h"
+#include "event_desc.h"
 
-//#include <QLoggingCategory>
-//#define THIS_SOURCE_FILE_LOG_CATEGORY "MAIN"
-//static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
-//#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "MAIN"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
+
+static_var PlayerWindow *player = NULL;
+static_var QMutex playerlock;
+
+static void do_cleanup_moviechooser(char const *const from)
+{
+    if(!playerlock.tryLock(500)) { // miliseconds
+        return;
+    }
+
+    if(player == NULL) {
+        MYDBG("%s: player is NULL", from);
+        playerlock.unlock();
+        return;
+    }
+
+    MYDBG("%s: deleting moviechooser", from);
+    PlayerWindow *copy = player;
+    player = NULL;
+
+    playerlock.unlock();
+
+    delete copy;
+}
+
+static void do_cleanup_moviechooser_atexit()
+{
+    do_cleanup_moviechooser("atexit");
+}
+static void do_cleanup_moviechooser_autocum(const QString &desc)
+{
+    do_cleanup_moviechooser(qPrintable(desc));
+}
+static void do_cleanup_moviechooser_ex()
+{
+    do_cleanup_moviechooser("exception");
+}
+static void do_cleanup_moviechooser_exel()
+{
+    do_cleanup_moviechooser("exceptionellipsis");
+}
+static void do_cleanup_moviechooser_end()
+{
+    do_cleanup_moviechooser("end");
+}
+static void do_cleanup_moviechooser_terminate()
+{
+    do_cleanup_moviechooser("terminate");
+    exit(1);
+}
+void do_cleanup_moviechooser_sig(int signum)
+{
+    char const *const sigdesc = strsignal(signum);
+    char *msg = NULL;
+    const int ret = asprintf(&msg, "captured signal \"%s\"", sigdesc);
+
+    if(ret > 0 && msg != NULL) {
+        do_cleanup_moviechooser(msg);
+        free(msg);
+        msg = NULL;
+    }
+    else {
+        do_cleanup_moviechooser(sigdesc);
+    }
+
+    raise(signum);
+}
+void set_signal(int signo)
+{
+    struct sigaction new_action, old_action;
+
+    /* Set up the structure to specify the new action. */
+    new_action.sa_handler = do_cleanup_moviechooser_sig;
+    sigemptyset(&new_action.sa_mask);
+    new_action.sa_flags = SA_RESETHAND;
+
+    if(0 != sigaction(signo, &new_action, &old_action)) {
+        qWarning("could not install signal handler for %s: %s", strsignal(signo), strerror(errno));
+    }
+    else {
+        char const *const sigdesc = strsignal(signo);
+        MYDBG("installed signal handler for %s", sigdesc);
+    }
+}
+
+
 
 static void usage(const QString &in_msg = QString())
 {
@@ -129,50 +219,29 @@ void parse_commandline(QCoreApplication &app
 
 }
 
+class AutoCUM
+{
+private:
+    const QString m_desc;
+public:
+    AutoCUM(const QString &in_desc): m_desc(in_desc) {}
+    AutoCUM(char const *const in_desc_latin1): m_desc(QLatin1String(in_desc_latin1)) {}
+    ~AutoCUM()
+    {
+        do_cleanup_moviechooser_autocum(m_desc);
+    }
+};
+
+static AutoCUM autocum_static("autocum_static");
+
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    // override with QT_LOGGING_RULES
-    QLoggingCategory::setFilterRules(QStringLiteral(
-                                         "*.debug=false\n"
-                                         "BADLOG=true\n"
-                                         "CAPSLOCK=true\n"
-                                         "CFG=true\n"
-                                         "DBUS=true\n"
-                                         "ENCODING=true\n"
-                                         "EC=true\n"
-                                         "IV=true\n"
-                                         "OQ=true\n"
-                                         "SL=true\n"
-                                         "MAIN=true\n"
-                                         "MMPIMP=true\n"
-                                         "REMLOC=true\n"
-                                         "SSMN=true\n"
-                                         "SYS=true\n"
-                                         "UTIL=true\n"
-                                     ));
+    init_logging();
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
-
-    if(definitely_running_from_desktop()) {
-        qInstallMessageHandler(desktopMessageOutput);
-    }
-    else {
-        qInstallMessageHandler(commandlineMessageOutput);
-    }
-
-#else
-
-    if(definitely_running_from_desktop()) {
-        qInstallMsgHandler(desktopMessageOutput);
-    }
-    else {
-        qInstallMsgHandler(commandlineMessageOutput);
-    }
-
-#endif
+    init_signals_spy();
 
     if(argc < 2) {
         usage();
@@ -214,12 +283,54 @@ int main(int argc, char *argv[])
     QStringList pslangs;
     parse_commandline(app, mfns, fullscreen, falangs, palangs, pslangs);
 
-    PlayerWindow *player = new PlayerWindow(fullscreen, mfns, falangs, palangs, pslangs);
+    (void) atexit(do_cleanup_moviechooser_atexit);
+    AutoCUM _autocum("autocum-stack");
+    std::set_terminate(do_cleanup_moviechooser_terminate);
 
-    player->show();
-    int ret = app.exec();
-    delete player;
-    player = NULL;
+    if(setand1_getenv("MC_NO_CAPTURE_SIGS")) {
+        MYDBG("NOT setting signal handlers");
+    }
+    else {
+        MYDBG("setting signal handlers");
+        set_signal(SIGHUP);
+        set_signal(SIGINT);
+        set_signal(SIGQUIT);
+        set_signal(SIGILL);
+        set_signal(SIGBUS);
+        set_signal(SIGFPE);
+        set_signal(SIGSEGV);
+        set_signal(SIGPIPE);
+        set_signal(SIGTERM);
+        set_signal(SIGXCPU);
+        set_signal(SIGIO);
+    }
+
+    int ret = -1;
+
+    try {
+        {
+            QMutexLocker locker(&playerlock);
+            player = new PlayerWindow(fullscreen, mfns, falangs, palangs, pslangs);
+        }
+
+
+        player->show();
+        ret = app.exec();
+    }
+
+    catch(std::exception &e) {
+        do_cleanup_moviechooser_ex();
+        fprintf(stderr, "main program: caught exception %s", e.what());
+        return 1;
+    }
+    catch(...) {
+        do_cleanup_moviechooser_exel();
+        fprintf(stderr, "main program: caught exception");
+        return 1;
+    }
+
+    do_cleanup_moviechooser_end();
+
     qWarning("ret=%d", ret);
     return ret;
 }

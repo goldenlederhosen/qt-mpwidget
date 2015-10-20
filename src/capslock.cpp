@@ -3,7 +3,7 @@
 #include <QtGlobal>
 
 #include <QLoggingCategory>
-#define THIS_SOURCE_FILE_LOG_CATEGORY "CAPSLOCK"
+#define THIS_SOURCE_FILE_LOG_CATEGORY "CAPSLCK"
 static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 #define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 

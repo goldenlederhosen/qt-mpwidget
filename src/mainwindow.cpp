@@ -18,6 +18,7 @@
 #include "config.h"
 #include "system.h"
 #include "remote_local.h"
+#include "event_desc.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "MAIN"
@@ -132,7 +133,7 @@ PlayerWindow::PlayerWindow(bool in_fullscreen
                            , const QStringList &in_palangs
                            , const QStringList &in_pslangs
                           ):
-    QMainWindow()
+    super()
     , mfns(in_mfns)
     , fullscreen(in_fullscreen)
     , MP(NULL)
@@ -171,7 +172,8 @@ PlayerWindow::PlayerWindow(bool in_fullscreen
     }
 
     might_get_remote_files = false;
-    foreach(const QString & mfn, mfns) {
+
+    foreach(const QString &mfn, mfns) {
         if(path_is_definitely_remote(mfn.toLocal8Bit().constData())) {
             might_get_remote_files = true;
         }
@@ -200,7 +202,9 @@ PlayerWindow::PlayerWindow(bool in_fullscreen
     MP = NULL;
     init_MP_object();
     setCentralWidget(MP);
-    set_focus_raise(MP);
+    MP->show();
+    MP->raise();
+    MP->setFocus(Qt::OtherFocusReason);
     QTimer::singleShot(0, this, SLOT(slot_MP_start()));
 
 }
@@ -208,7 +212,12 @@ PlayerWindow::PlayerWindow(bool in_fullscreen
 PlayerWindow::~PlayerWindow()
 {
     if(MP != NULL) {
+        MYDBG("PlayerWindow::~PlayerWindow deleting MP");
         delete MP;
+        MP = NULL;
+    }
+    else {
+        MYDBG("PlayerWindow::~PlayerWindow MP is NULL");
     }
 }
 
@@ -222,9 +231,16 @@ void PlayerWindow::resizemyself()
 
 void PlayerWindow::resizeEvent(QResizeEvent * /* event */)
 {
-    MYDBG("ImageViewer resizeEvent");
+    MYDBG("resizeEvent");
     resizemyself();
 
+}
+
+bool PlayerWindow::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
 }
 
 void PlayerWindow::activate_this_window()
@@ -290,7 +306,7 @@ void PlayerWindow::MP_finished(bool success, const QString &errstr)
 
     MYDBG("queuing next movie");
 
-    set_focus_raise(MP);
+    MP->show_and_take_focus(this);
 
     activate_this_window();
 
@@ -359,7 +375,7 @@ void PlayerWindow::MP_window_correct()
 {
     MP->resize(this->size());
     MP->move(0, 0);
-    set_focus_raise(MP);
+    MP->show_and_take_focus(this);
 }
 
 void PlayerWindow::slot_cdDetected(bool success, QString msg, QString mfn)

@@ -13,6 +13,9 @@ class SingleQProcessSingleshot : public QObject
 {
     Q_OBJECT
 
+public:
+    typedef QObject super;
+
 private:
     SingleQProcess *prog;
 
@@ -39,24 +42,16 @@ private:
     bool start(const QString &exe, const QStringList &args, QString &error);
     bool wait(int msecs);
 
-public:
-    explicit SingleQProcessSingleshot(QObject *parent, char const *const in_oname):
-        QObject(parent)
-        , prog(NULL)
-        , started(false)
-        , finished(false)
-        , m_success(false)
-    {
-        setObjectName(QLatin1String(in_oname));
-    }
+private:
+    // forbid
+    SingleQProcessSingleshot();
+    SingleQProcessSingleshot(const SingleQProcessSingleshot &);
+    SingleQProcessSingleshot &operator=(const SingleQProcessSingleshot &in);
 
-    virtual ~SingleQProcessSingleshot()
-    {
-        if(prog != NULL) {
-            delete prog;
-            prog = NULL;
-        }
-    }
+public:
+    explicit SingleQProcessSingleshot(QObject *parent, char const *const in_oname);
+
+    virtual ~SingleQProcessSingleshot();
 
     bool run(const QString &exe, const QStringList &args, int waitmsecs, QString &error);
 
@@ -90,6 +85,9 @@ public slots:
 
     // from the SingleQProcess
     void slot_prog_has_finished(bool success, const QString &errstr, const QString &output, const QString &exe, const QStringList &args);
+
+protected:
+    virtual bool event(QEvent *event);
 
 };
 

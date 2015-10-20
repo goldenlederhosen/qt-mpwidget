@@ -1,7 +1,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <QLatin1String>
 #include <QString>
 #include <QDateTime>
 #include <QStringList>
@@ -12,10 +11,7 @@
 
 #include <valgrind/valgrind.h>
 
-#define PROGRAMMERERROR(msg, ...) do { \
-        VALGRIND_PRINTF_BACKTRACE("PROGRAMMERERROR at %s:%lu: " msg "\n", __FILE__, (unsigned long) __LINE__, ##__VA_ARGS__);\
-        qFatal("PROGRAMMERERROR at %s:%lu: " msg, __FILE__, (unsigned long) __LINE__, ##__VA_ARGS__); \
-    } while(0);
+#define PROGRAMMERERROR(msg, ...) qFatal("PROGRAMMERERROR " msg, ##__VA_ARGS__)
 
 #define ALLDBG(msg, ...) qWarning("%s:%lu: " msg, __FILE__, (unsigned long) __LINE__, ##__VA_ARGS__)
 
@@ -84,18 +80,16 @@ QStringList doSplitArgs(const QString &args);
 // true - set and 1
 bool setand1_getenv(char const *const varname);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
-void desktopMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
-void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &ctx, const QString &msg);
-#else
-void desktopMessageOutput(QtMsgType type, const char *msg);
-void commandlineMessageOutput(QtMsgType type, const char *msg);
-#endif
+class QObject;
+QString object_2_name(QObject *w);
 
-class QWidget;
-void set_focus_raise(QWidget *w);
-QString widget_2_name(QWidget *w);
-
-
+enum class t_new_focus_is_allowed_to_be_visible {
+    Yes,
+    No
+};
+enum class t_do_hide_oldfocus {
+    Yes,
+    No
+};
 
 #endif // UTIL_H

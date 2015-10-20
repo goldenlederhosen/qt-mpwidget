@@ -11,7 +11,7 @@
 #define  SMB_SUPER_MAGIC       0x517B
 #define  VXFS_SUPER_MAGIC      0xa501FCF5
 
-static long const remote_magic[] = {
+static_var const long remote_magic[] = {
     CODA_SUPER_MAGIC,
     CIFS_MAGIC_NUMBER,
     NCP_SUPER_MAGIC,
@@ -20,7 +20,7 @@ static long const remote_magic[] = {
     VXFS_SUPER_MAGIC,
     0
 };
-static char const *const remote_magic_name[] = {
+static_var const char *const remote_magic_name[] = {
     "CODA",
     "CIFS",
     "NCP",
@@ -70,7 +70,7 @@ static char const *const remote_magic_name[] = {
 #define  XFS_SUPER_MAGIC       0x58465342
 #define  _XIAFS_SUPER_MAGIC    0x012FD16D
 
-static long const local_magic[] = {
+static_var const long local_magic[] = {
     ADFS_SUPER_MAGIC,
     AFFS_SUPER_MAGIC,
     BEFS_SUPER_MAGIC,
@@ -111,7 +111,7 @@ static long const local_magic[] = {
     _XIAFS_SUPER_MAGIC,
     0
 };
-static const char *const local_magic_name[] = {
+static_var const char *const local_magic_name[] = {
     "ADFS",
     "AFFS",
     "BEFS",

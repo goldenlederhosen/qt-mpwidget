@@ -22,16 +22,18 @@
 
 
 #include <QHash>
-#include <QPointer>
 #include <QTimer>
 #include <QWidget>
 #include <QStringList>
 #include "mpmediainfo.h"
+#include "focusstack.h"
 
 class QSlider;
 class QLabel;
 class QSvgRenderer;
 class OverlayQuit;
+class QToolButton;
+class QIcon;
 
 #include "mpprocess.h"
 
@@ -44,6 +46,9 @@ class MpWidget : public QWidget
     Q_PROPERTY(double streamPosition READ current_position)
     Q_PROPERTY(QString videoOutput READ videoOutput WRITE setVideoOutput)
     Q_PROPERTY(QString mplayerPath READ mplayerPath WRITE setMPlayerPath)
+
+public:
+    typedef QWidget super;
 
 private:
     bool m_fullscreen;
@@ -58,6 +63,16 @@ private:
     QLabel *m_sliderlabel;
     QLabel *m_hourglass;
     QSvgRenderer *m_hourglass_render;
+
+    QIcon *m_icon_tb_cycle_alang;
+    QIcon *m_icon_tb_cycle_slang;
+    QIcon *m_icon_tb_playpause_dopause;
+    QIcon *m_icon_tb_playpause_doplay;
+    QIcon *m_icon_tb_playpause_inactive;
+
+    QToolButton *m_tb_playpause;
+    QToolButton *m_tb_cycle_alang;
+    QToolButton *m_tb_cycle_slang;
 
     QTimer m_hide_slider_timer;
 
@@ -75,7 +90,11 @@ private:
 
     OverlayQuit *m_helpscreen;
 
-    explicit MpWidget();
+private:
+    // forbid
+    MpWidget();
+    MpWidget(const MpWidget &);
+    MpWidget &operator=(const MpWidget &in);
 
 public:
     explicit MpWidget(QWidget *parent, bool fullscreen);
@@ -90,6 +109,7 @@ protected:
     virtual void keyPressEvent(QKeyEvent *event);
     virtual void resizeEvent(QResizeEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);
+    virtual bool event(QEvent *event);
 
 public:
     MpState state() const;
@@ -134,6 +154,9 @@ private:
     void setVolume_abs(int volume);
     void setVolume_rel(int rvolume);
     void testKillMplayer();
+    void toggle_playpause();
+    void cycle_alang();
+    void cycle_slang();
 
 public slots:
     // level: minimum level to be visible, 0 = always
@@ -159,6 +182,11 @@ public slots:
     void slot_show_helpscreen();
     void slot_set_not_showing_help();
 
+    // from QToolButtons
+    void slot_tb_playpause_clicked();
+    void slot_tb_cycle_alang_clicked();
+    void slot_tb_cycle_slang_clicked();
+
 signals:
     void sig_stateChanged(MpState oldstate, MpState newstate);
     void sig_error_while(const QString &reason, const QString &url, const MpMediaInfo &mmi, double lastpos);
@@ -166,6 +194,12 @@ signals:
     void sig_loadDone();
     void sig_recordbad(const BadMovieRecord_t &);
 
+public slots:
+
+    void show_and_take_focus(QWidget *oldfocusguess);
+    void hide_and_return_focus();
+private:
+    FocusStack m_focusstack;
 };
 
 

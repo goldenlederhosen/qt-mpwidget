@@ -14,7 +14,8 @@
 #include "util.h"
 #include "mpmediainfo.h"
 #include "mpstate.h"
-#include "vregexp.h"
+#include "vregularexpression.h"
+#include "deathsigprocess.h"
 
 const unsigned osd_default_duration_ms = 2000;
 
@@ -24,6 +25,9 @@ const unsigned osd_default_duration_ms = 2000;
 class MpProcess : public QObject
 {
     Q_OBJECT
+
+public:
+    typedef QObject super;
 
 public:
     enum IOChannel {
@@ -119,7 +123,7 @@ private:
         }
     };
 
-    QProcess *m_proc;
+    DeathSigProcess *m_proc;
     MpState m_curr_state;
 
     QString m_cfg_mplayerPath;
@@ -152,7 +156,7 @@ private:
     bool m_cfg_currently_parsing_mplayer_text;
     IOChannels m_cfg_output_accumulator_mode;
     size_t m_cfg_acc_maxlines;
-    VRegExp *m_cfg_output_accumulator_ignore;
+    VRegularExpression *m_cfg_rx_output_accumulator_ignore;
     QList<MpProcessIolog> m_acc;
 
     QDateTime m_lastreadt;
@@ -168,6 +172,12 @@ private:
     int m_current_aid;
 
     ScreenSaverManager m_ssmanager;
+
+private:
+    // forbid
+    MpProcess();
+    MpProcess(const MpProcess &);
+    MpProcess &operator=(const MpProcess &in);
 
 public:
 
@@ -223,24 +233,24 @@ public:
     {
         m_cfg_output_accumulator_mode = in;
     }
-    void set_output_accumulator_ignore(const VRegExp &in)
+    void set_output_accumulator_ignore(const VRegularExpression &in)
     {
-        if(m_cfg_output_accumulator_ignore != NULL) {
-            delete m_cfg_output_accumulator_ignore;
-            m_cfg_output_accumulator_ignore = NULL;
+        if(m_cfg_rx_output_accumulator_ignore != NULL) {
+            delete m_cfg_rx_output_accumulator_ignore;
+            m_cfg_rx_output_accumulator_ignore = NULL;
         }
 
-        m_cfg_output_accumulator_ignore = new VRegExp(in);
+        m_cfg_rx_output_accumulator_ignore = new VRegularExpression(in);
     }
     void set_output_accumulator_ignore(char const *const in)
     {
-        if(m_cfg_output_accumulator_ignore != NULL) {
-            delete m_cfg_output_accumulator_ignore;
-            m_cfg_output_accumulator_ignore = NULL;
+        if(m_cfg_rx_output_accumulator_ignore != NULL) {
+            delete m_cfg_rx_output_accumulator_ignore;
+            m_cfg_rx_output_accumulator_ignore = NULL;
         }
 
         if(in != NULL && in[0] != '\0') {
-            m_cfg_output_accumulator_ignore = new VRegExp(in);
+            m_cfg_rx_output_accumulator_ignore = new VRegularExpression(in);
         }
     }
     void set_output_accumulator_ignore_default();
@@ -251,6 +261,11 @@ public:
 
     explicit MpProcess(QObject *parent, MpMediaInfo *mip);
     virtual ~MpProcess();
+
+protected:
+    virtual bool event(QEvent *event);
+
+public:
 
     double lastPositionRead() const;
     double currentExpectedPosition(bool maskinbadstates) const;
@@ -267,7 +282,6 @@ public:
     bool screensaver_should_be_active() const;
 
 public slots:
-
 
     // loads a file and starts to play. a slot so it can be called delayed
     void slot_load(const QString &url);
@@ -300,6 +314,7 @@ public slots:
     void slot_readStderr();
     void slot_finished(int, QProcess::ExitStatus);
     void slot_error_received(QProcess::ProcessError);
+    void slot_started();
     // delay
     void slot_ask_for_metadata();
     // timer - started when beginning to load
@@ -326,9 +341,9 @@ private:
     void core_seek(double offset, MpProcess::SeekMode whence);
 
     // Parses a line of MPlayer output
-    void parseLine(const QString &line, const QDateTime &readtime, QStringList &positionlines, QList<MpState> &newstates, QStringList &errorreasons, QList<double> &foundspeeds);
+    void parseLine(const QString &line, QStringList &positionlines, QList<MpState> &newstates, QStringList &errorreasons, QList<double> &foundspeeds);
     // Parses MPlayer's media identification output
-    void parseMediaInfo(const QString &line, const QDateTime &readtime);
+    void parseMediaInfo(const QString &line);
     // Parses MPlayer's position output
     void parsePosition(const QString &line, const QDateTime &readtime);
     // Changes the current state, possibly emitting multiple signals
@@ -355,7 +370,7 @@ private:
         return m_mediaInfo->length();
     }
     void foundReadSpeed(double rspeed);
-    void dbg_out(char const *pref, const QString &line, const QDateTime &now);
+    void dbg_out(char const *pref, const QString &line);
     void set_screensaver_by_state();
 
 

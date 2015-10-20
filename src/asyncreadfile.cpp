@@ -9,23 +9,24 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <new>
 
 #include "asyncreadfile.h"
 #include "asyncreadfile_child.h"
 #include "encoding.h"
 #include "asynckillproc.h"
+#include "util.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "CLF"
 static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 #define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
-static bool CLF_DEBUG_enabled;
-
-static void init_CLF_DEBUG_enabled()
-{
-    CLF_DEBUG_enabled = category().isDebugEnabled();
-}
+#ifdef CLF_DEBUG
+static_var const bool CLF_DEBUG_enabled = true;
+#else
+static_var const bool CLF_DEBUG_enabled = false;
+#endif
 
 #define ASFMYDBG(msg, ...) do{if(CLF_DEBUG_enabled){fprintf(stderr, "CLF P  %s " msg "\n", qPrintable(m_ofn.right(20)), ##__VA_ARGS__);}}while(0)
 #define CLDMYDBG(msg, ...) do{if(CLF_DEBUG_enabled){fprintf(stderr, "CLF C  %s PID=%d " msg "\n", c_filename_short, getpid(), ##__VA_ARGS__);}}while(0)
@@ -46,18 +47,17 @@ AsyncReadFile::AsyncReadFile(const QString &in_fn, bool in_getc, off_t in_maxrea
     , m_errmsg_buffer(NULL)
     , m_content_buffer_pipe_from_child(NULL)
 {
-    init_CLF_DEBUG_enabled();
 }
 
 QString AsyncReadFile::make_latin1_errmsg(int errno_copy, char const *const fmt, ...)  const
 {
-    static const QString inbetw((QLatin1String(": ")));
+    static_var const QString inbetw((QStringLiteral(": ")));
 
     QString s;
     const int maxl = 20;
 
     if(m_ofn.length() > maxl) {
-        s = QLatin1String("...");
+        s = QStringLiteral("...");
         const int l = s.length();
         s.append(m_ofn.right(maxl - l));
     }
@@ -106,10 +106,11 @@ void AsyncReadFile::force_kill_child(char const *const fmt, ...)
             va_list ap;
             va_start(ap, fmt);
             char *kreason = NULL;
+            const int byteswritten = ::vasprintf(&kreason, fmt, ap);
 
-            if(::vasprintf(&kreason, fmt, ap) <= 0) {
+            if(byteswritten <= 0 || kreason == NULL) {
                 va_end(ap);
-                qFatal("out of memory");
+                throw std::bad_alloc();
             }
 
             va_end(ap);
@@ -235,22 +236,22 @@ bool AsyncReadFile::xwaitpid(int &pid, QStringList *errors, bool *pgot_pid_chang
         const int ex = WEXITSTATUS(status);
 
         if(ex == 1) {
-            errors->append(QLatin1String("exit value 1"));
+            errors->append(QStringLiteral("exit value 1"));
         }
         else if(ex == 0) {
             ASFMYDBG("success");
         }
         else {
-            errors->append(QLatin1String("exit value ") + QString::number(ex) + QLatin1String("but I only expected 0 or 1"));
+            errors->append(QStringLiteral("exit value ") + QString::number(ex) + QStringLiteral("but I only expected 0 or 1"));
         }
     }
 
     else if(WIFSIGNALED(status)) {
         const int sig = WTERMSIG(status);
-        errors->append(QLatin1String("killed by signal ") + err_xbin_2_local_qstring(strsignal(sig)));
+        errors->append(QStringLiteral("killed by signal ") + err_xbin_2_local_qstring(strsignal(sig)));
     }
     else if(errors->isEmpty()) {
-        errors->append(QLatin1String("did not properly exit"));
+        errors->append(QStringLiteral("did not properly exit"));
     }
 
 
@@ -259,12 +260,10 @@ bool AsyncReadFile::xwaitpid(int &pid, QStringList *errors, bool *pgot_pid_chang
 
 bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_made_progress)
 {
-    init_CLF_DEBUG_enabled();
-
     *p_made_progress = true;
 
     if(m_ofn.isEmpty()) {
-        errors->append(QLatin1String("iter() called but start() not called before"));
+        errors->append(QStringLiteral("iter() called but start() not called before"));
         return false;
     }
 
@@ -275,7 +274,7 @@ bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_
         c_filename = ::strdup(m_fn.toLocal8Bit().constData());
 
         if(c_filename == NULL) {
-            errors->append(QLatin1String("out of memory"));
+            errors->append(QStringLiteral("out of memory"));
             return false;
         }
 
@@ -443,15 +442,12 @@ bool AsyncReadFile::iter(QStringList *errors, QByteArray *acc_contents, bool *p_
         return false;
     }
 
-    qFatal("What?");
-    return false;
+    PROGRAMMERERROR("WTF");
 
 }
 
 void AsyncReadFile::finish()
 {
-    init_CLF_DEBUG_enabled();
-
     if(!m_ofn.isEmpty()) {
         ASFMYDBG("finish");
     }
@@ -489,8 +485,6 @@ AsyncReadFile::~AsyncReadFile()
 
 void async_slurp_file(const QString &url, QStringList &errors, QByteArray &contents, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
-    init_CLF_DEBUG_enabled();
-
     MYDBG("async_slurp_file: %s, fail after %lu msec", qPrintable(url), (unsigned long)wholetimeout_msec);
 
     AsyncReadFile ASF(url, true, -1);
@@ -505,7 +499,7 @@ void async_slurp_file(const QString &url, QStringList &errors, QByteArray &conte
         const qint64 timepassed_msec = timer.elapsed();
 
         if(timepassed_msec > wholetimeout_msec) {
-            errors.append(QLatin1String("took too long"));
+            errors.append(QStringLiteral("took too long"));
             MYDBG("async_slurp_file: FAILURE %s", qPrintable(errors.join(QLatin1String("; "))));
             return;
         }
@@ -532,8 +526,6 @@ void async_slurp_file(const QString &url, QStringList &errors, QByteArray &conte
 QString try_load_start_of_file(const QString &url, const off_t maxreadsize, const qint64 wholetimeout_msec, const qint64 sleep_usec)
 {
 
-    init_CLF_DEBUG_enabled();
-
     MYDBG("try_load_start_of_file: %s, read first %lu bytes, fail after %lu msec", qPrintable(url), (unsigned long)maxreadsize, (unsigned long)wholetimeout_msec);
 
     QStringList errors;
@@ -550,8 +542,8 @@ QString try_load_start_of_file(const QString &url, const off_t maxreadsize, cons
         const qint64 timepassed_msec = timer.elapsed();
 
         if(timepassed_msec > wholetimeout_msec) {
-            errors.append(QLatin1String("took too long"));
-            const QString ret = errors.join(QLatin1String("; "));
+            errors.append(QStringLiteral("took too long"));
+            const QString ret = errors.join(QStringLiteral("; "));
             MYDBG("try_load_start_of_file: FAILURE %s", qPrintable(ret));
             return ret;
         }
@@ -566,7 +558,7 @@ QString try_load_start_of_file(const QString &url, const off_t maxreadsize, cons
 
     }
 
-    const QString ret = errors.join(QLatin1String("; "));
+    const QString ret = errors.join(QStringLiteral("; "));
 
     if(ret.isEmpty()) {
         MYDBG("try_load_start_of_file: success");

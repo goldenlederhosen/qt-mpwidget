@@ -12,6 +12,8 @@
 class MpMediaInfo
 {
 private:
+    QString m_desc;
+
     QHash<QString, QString> m_tags;
 
     QHash<int, QString> m_id2alangs;
@@ -56,12 +58,25 @@ private:
         }
     }
 
+
 public:
+
     explicit MpMediaInfo()
     {
         clear();
     }
+
+    explicit MpMediaInfo(const QString &in_desc)
+    {
+        clear();
+        m_desc = in_desc;
+
+        if(m_desc.isEmpty()) {
+            PROGRAMMERERROR("MpMediaInfo with empty description");
+        }
+    }
     MpMediaInfo(const MpMediaInfo &in):
+        m_desc(in.m_desc),
         m_tags(in.m_tags),
         m_id2alangs(in.m_id2alangs),
         m_id2slangs(in.m_id2slangs),
@@ -87,6 +102,7 @@ public:
     }
     void assign(const MpMediaInfo &in)
     {
+        m_desc = in.m_desc;
         m_tags = in.m_tags;
         m_id2alangs = in.m_id2alangs;
         m_id2slangs = in.m_id2slangs;
@@ -111,6 +127,7 @@ public:
     }
     MpMediaInfo &operator=(const MpMediaInfo &in)
     {
+        m_desc = in.m_desc;
         m_tags = in.m_tags;
         m_id2alangs = in.m_id2alangs;
         m_id2slangs = in.m_id2slangs;
@@ -448,11 +465,11 @@ public:
     QString aid_2_alang(const int aid) const
     {
         if(aid < 0) {
-            return QLatin1String("MUTE");
+            return QStringLiteral("MUTE");
         }
 
         if(!m_id2alangs.contains(aid)) {
-            return QLatin1String("UNKNOWN");
+            return QStringLiteral("UNKNOWN");
         }
 
         return m_id2alangs[aid];

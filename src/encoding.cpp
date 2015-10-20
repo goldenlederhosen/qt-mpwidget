@@ -18,7 +18,7 @@ QString xbin_2_codec_qstring(bool doerr, char const *const blob, const size_t le
     }
 
     if(codec == NULL) {
-        qFatal("Blob-string \"%s\": no codec found?", blob);
+        PROGRAMMERERROR("Blob-string \"%s\": no codec found?", blob);
     }
 
     QTextCodec::ConverterState state;

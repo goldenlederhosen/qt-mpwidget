@@ -4,28 +4,36 @@
 #include <QDebug>
 #include <QString>
 #include <QStringList>
-#include <QLatin1String>
 #include <QCoreApplication>
 
 #include "encoding.h"
 #include "safe_signals.h"
+#include "event_desc.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "SQP"
 static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 #define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
-static const int timeout_waitforstarted = 3000;
+static_var const int timeout_waitforstarted = 3000;
 
 SingleQProcess::SingleQProcess(QObject *parent, const QString &in_oname) :
-    QObject(parent), proc(NULL)
+    super(), proc(NULL)
 {
     setObjectName(in_oname);
+    setParent(parent);
 }
 
 SingleQProcess::~SingleQProcess()
 {
     close();
+}
+
+bool SingleQProcess::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
 }
 
 void SingleQProcess::close()
@@ -41,6 +49,7 @@ void SingleQProcess::close()
 
 void SingleQProcess::slot_accumulate_all_out()
 {
+    MYDBG("slot_accumulate_all_out");
     next = proc->readAllStandardOutput();
     printf("%s", next.constData());
     accout.append(next);
@@ -56,15 +65,14 @@ bool SingleQProcess::start(const QString &exe, const QStringList &args, QString 
     close();
     curr_exe = exe;
     curr_args = args;
-    proc = new QProcess();
-    proc->setObjectName(objectName() + QLatin1String("_QP"));
+    proc = new DeathSigProcess(objectName() + QLatin1String("_QP"), NULL);
     qRegisterMetaType<QProcess::ExitStatus>();
     XCONNECT(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(slot_child_has_finished(int, QProcess::ExitStatus)), QUEUEDCONN);
     XCONNECT(proc, SIGNAL(readyReadStandardOutput()), this, SLOT(slot_accumulate_all_out()), QUEUEDCONN);
 
     proc->setProcessChannelMode(QProcess::MergedChannels);
     // proc->setProcessChannelMode(QProcess::ForwardedChannels);
-    MYDBG("Executing %s %s", qPrintable(exe), qPrintable(args.join(QLatin1String(" "))));
+    MYDBG("Executing %s %s", qPrintable(exe), qPrintable(args.join(QStringLiteral(" "))));
     proc->start(exe, args);
 
     bool isstarted = proc->waitForStarted(timeout_waitforstarted);
@@ -74,7 +82,7 @@ bool SingleQProcess::start(const QString &exe, const QStringList &args, QString 
         slot_accumulate_all_out();
 
         if(accout.isEmpty()) {
-            error = QLatin1String("viewer could not start, no output?");
+            error = QStringLiteral("viewer could not start, no output?");
         }
         else {
             error = output_till_now();
@@ -89,7 +97,10 @@ bool SingleQProcess::start(const QString &exe, const QStringList &args, QString 
 
 void SingleQProcess::slot_child_has_finished(int exitCode, QProcess::ExitStatus status)
 {
+    MYDBG("slot_child_has_finished(%d, %s)", exitCode, status == QProcess::NormalExit ? "normal" : "crash");
+
     if(exitCode == 0 && status == QProcess::NormalExit) {
+        MYDBG("emit sig_finished(true)");
         emit sig_finished(true, QString(), output_till_now(), curr_exe, curr_args);
         return;
     }
@@ -97,7 +108,7 @@ void SingleQProcess::slot_child_has_finished(int exitCode, QProcess::ExitStatus 
     QString error;
 
     if(exitCode != 0) {
-        error.append(QLatin1String("exitCode: "));
+        error.append(QStringLiteral("exitCode: "));
         QString sExitCode;
         sExitCode.setNum(exitCode);
         error.append(sExitCode);
@@ -105,16 +116,17 @@ void SingleQProcess::slot_child_has_finished(int exitCode, QProcess::ExitStatus 
 
     if(status != QProcess::NormalExit) {
         if(!error.isEmpty()) {
-            error.append(QLatin1String("; "));
+            error.append(QStringLiteral("; "));
         }
 
-        error.append(QLatin1String("process crashed"));
+        error.append(QStringLiteral("process crashed"));
     }
 
     if(error.isEmpty()) {
-        error.append(QLatin1String("unknown problem"));
+        error.append(QStringLiteral("unknown problem"));
     }
 
+    MYDBG("emit sig_finished(false, %s)", qPrintable(error));
     emit sig_finished(false, error, output_till_now(), curr_exe, curr_args);
 }
 

@@ -1,6 +1,6 @@
 #include "mpstate.h"
 
-static const char *const MpState_2_asciidesc[MpState_maxidx] = {
+static_var const char *const MpState_2_asciidesc[MpState_maxidx] = {
     "NotStartedState",
     "IdleState",
     "LoadingState",

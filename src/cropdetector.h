@@ -3,17 +3,29 @@
 
 #include <QObject>
 #include <QString>
-#include <QProcess>
 #include <QDateTime>
 
-class CropDetector : public QObject {
+#include "deathsigprocess.h"
+
+class CropDetector : public QObject
+{
     Q_OBJECT
+public:
+    typedef QObject super;
 private:
     QString mfn;
-    QProcess proc;
+    QString fshort;
+    DeathSigProcess proc;
     QDateTime start;
+
+    // forbid
+    CropDetector();
+    CropDetector(const CropDetector &);
+    CropDetector &operator=(const CropDetector &in);
+
 public:
     explicit CropDetector(QObject *parent, QString in_mfn);
+    virtual ~CropDetector() {}
 
 signals:
 
@@ -24,6 +36,9 @@ public slots:
     // from the process
     void slot_pError(QProcess::ProcessError);
     void slot_pfinished(int, QProcess::ExitStatus);
+
+protected:
+    virtual bool event(QEvent *event);
 
 };
 

@@ -1,5 +1,6 @@
 #include "cropdetector.h"
 #include "safe_signals.h"
+#include "event_desc.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "CD"
@@ -9,12 +10,11 @@ static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 CropDetector::CropDetector(QObject *parent, QString in_mfn) :
     QObject(parent),
     mfn(in_mfn),
-    proc(this)
+    fshort(mfn.right(20).simplified().replace(QLatin1Char(' '), QLatin1Char('_'))),
+    proc(QLatin1String("CropDetector_QP_") + fshort, this)
 {
 
-    QString fshort = mfn.right(20).simplified().replace(QLatin1Char(' '), QLatin1Char('_'));
     setObjectName(QLatin1String("CropDetector_") + fshort);
-    proc.setObjectName(QLatin1String("CropDetector_QP_") + fshort);
 
     // add dir of own exe to PATH
     QString program = QLatin1String("videofile.info");
@@ -112,4 +112,10 @@ void CropDetector::slot_pfinished(int ecode, QProcess::ExitStatus estatus)
     else {
         emit sig_detected(true, sout, mfn);
     }
+}
+bool CropDetector::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
 }

@@ -1,27 +1,33 @@
 #include "mpmediainfo.h"
 
-#include "vregexp.h"
+#include "vregularexpression.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "MPM"
 static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
-#define MPMMYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
+#define MPMMYDBG(msg, ...) qCDebug(category, "%s: " msg, qPrintable(m_desc), ##__VA_ARGS__)
 
 void MpMediaInfo::set_DAR(double D)
 {
+    if(D < 0.001 || D > 100) {
+        PROGRAMMERERROR("%s: set_DAR(%f)", qPrintable(m_desc), D);
+    }
+
     MPMMYDBG("set_DAR(%f)", D);
     mc_DAR.set(D);
 }
 
 void  MpMediaInfo::set_PAR(double P)
 {
+    if(P < 0.001 || P > 100) {
+        PROGRAMMERERROR("%s: set_PAR(%f)", qPrintable(m_desc), P);
+    }
+
     MPMMYDBG("set_PAR(%f)", P);
     mc_PAR.set(P);
 }
 double MpMediaInfo::PAR() const
 {
-#ifdef CAUTION
-
     if(mc_PAR.isset() && mc_DAR.isset()) {
         const double P = mc_PAR.get();
         const double D = mc_DAR.get();
@@ -33,8 +39,6 @@ double MpMediaInfo::PAR() const
             qFatal("PAR isset: %f. But DAR isset: PAR %f = %f * %d / %d", P, P2, D, h, w);
         }
     }
-
-#endif
 
     if(mc_PAR.isset()) {
         const double P = mc_PAR.get();
@@ -57,8 +61,6 @@ double MpMediaInfo::PAR() const
 }
 double MpMediaInfo::DAR() const
 {
-#ifdef CAUTION
-
     if(mc_DAR.isset() && mc_PAR.isset()) {
         const double D = mc_DAR.get();
         const double P = mc_PAR.get();
@@ -70,8 +72,6 @@ double MpMediaInfo::DAR() const
             qFatal("DAR isset: %f. But PAR isset: DAR %f = %f * %d / %d", D, D2, P, w, h);
         }
     }
-
-#endif
 
     if(mc_DAR.isset()) {
         const double D = mc_DAR.get();
@@ -114,18 +114,19 @@ void MpMediaInfo::set_crop(const QString &str)
         return;
     }
 
-    static VRegExp rxcs("^(\\d+):(\\d+):(\\d+):(\\d+)$");
+    static_var const VRegularExpression rx_cs("^(\\d+):(\\d+):(\\d+):(\\d+)$");
+    QRegularExpressionMatch match = rx_cs.match(str);
 
-    if(rxcs.indexIn(str) < 0) {
+    if(!match.hasMatch()) {
         qWarning("bad cropstring %s", qPrintable(str));
         mc_crop.force_set(QRect());
         return;
     }
 
-    const QString ws = rxcs.cap(1);
-    const QString hs = rxcs.cap(2);
-    const QString xs = rxcs.cap(3);
-    const QString ys = rxcs.cap(4);
+    const QString ws = match.captured(1);
+    const QString hs = match.captured(2);
+    const QString xs = match.captured(3);
+    const QString ys = match.captured(4);
     const size_t w = QSToUInt(ws);
     const size_t h = QSToUInt(hs);
     const size_t x = QSToUInt(xs);

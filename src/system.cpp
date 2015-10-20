@@ -15,7 +15,7 @@
 #include <QTextStream>
 
 #include "singleqprocesssingleshot.h"
-#include "vregexp.h"
+#include "vregularexpression.h"
 #include "config.h"
 #include "encoding.h"
 
@@ -24,16 +24,16 @@
 static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 #define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
-static const int timeout_dvdrwmediainfo_msec = 3000;
-static const int timeout_isoinfo_msec = 3000;
-static const int timeout_blkid_msec = 3000;
+static_var const int timeout_dvdrwmediainfo_msec = 3000;
+static_var const int timeout_isoinfo_msec = 3000;
+static_var const int timeout_blkid_msec = 3000;
 
 static bool check_with_dvdrwmediainfo(const QString &dev, QStringList &erracc)
 {
     QStringList drmargs;
     drmargs << dev;
 
-    const QString exe = QLatin1String("dvd+rw-mediainfo");
+    const QString exe = QStringLiteral("dvd+rw-mediainfo");
 
     SingleQProcessSingleshot sqpss(NULL, "SQPS_dvdrwmediainfo");
     QString error;
@@ -49,11 +49,11 @@ static bool check_with_dvdrwmediainfo(const QString &dev, QStringList &erracc)
 static bool check_with_isoinfo(const QString &dev, QStringList &erracc)
 {
     QStringList drmargs;
-    drmargs << QLatin1String("-d");
-    drmargs << QLatin1String("-i");
+    drmargs << QStringLiteral("-d");
+    drmargs << QStringLiteral("-i");
     drmargs << dev;
 
-    const QString exe = QLatin1String("isoinfo");
+    const QString exe = QStringLiteral("isoinfo");
 
     SingleQProcessSingleshot sqpss(NULL, "SQPS_isoinfo_d_i");
     QString error;
@@ -68,11 +68,11 @@ static bool check_with_isoinfo(const QString &dev, QStringList &erracc)
 static bool fs_looks_like_vdvd(const QString &dev, QStringList &erracc)
 {
     QStringList drmargs;
-    drmargs << QLatin1String("-f");
-    drmargs << QLatin1String("-i");
+    drmargs << QStringLiteral("-f");
+    drmargs << QStringLiteral("-i");
     drmargs << dev;
 
-    const QString exe = QLatin1String("isoinfo");
+    const QString exe = QStringLiteral("isoinfo");
 
     SingleQProcessSingleshot sqpss(NULL, "SQPS_isoinfo_f_i");
     QString error;
@@ -86,7 +86,7 @@ static bool fs_looks_like_vdvd(const QString &dev, QStringList &erracc)
     QString out = sqpss.get_output();
     QStringList lines = out.split(QLatin1Char('\n'));
 
-    const QString VIDEOTS = QLatin1String("/VIDEO_TS/");
+    const QString VIDEOTS = QStringLiteral("/VIDEO_TS/");
 
     foreach(const QString &l, lines) {
         if(l.indexOf(VIDEOTS) == 0) {
@@ -100,13 +100,13 @@ static bool fs_looks_like_vdvd(const QString &dev, QStringList &erracc)
 static bool dev_2_title(const QString &dev, QString &title, QStringList &erracc)
 {
     QStringList drmargs;
-    drmargs << QLatin1String("-s");
-    drmargs << QLatin1String("LABEL");
-    drmargs << QLatin1String("-o");
-    drmargs << QLatin1String("value");
+    drmargs << QStringLiteral("-s");
+    drmargs << QStringLiteral("LABEL");
+    drmargs << QStringLiteral("-o");
+    drmargs << QStringLiteral("value");
     drmargs << dev;
 
-    const QString exe = QLatin1String("blkid");
+    const QString exe = QStringLiteral("blkid");
 
     SingleQProcessSingleshot sqpss(NULL, "SQPS_blkid");
     QString error;
@@ -128,17 +128,17 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
 {
     QStringList candidates;
 
-    candidates.append(QLatin1String("/dev/dvd"));
-    candidates.append(QLatin1String("/dev/dvd0"));
-    candidates.append(QLatin1String("/dev/dvd1"));
-    candidates.append(QLatin1String("/dev/scd0"));
-    candidates.append(QLatin1String("/dev/scd1"));
-    candidates.append(QLatin1String("/dev/sr0"));
-    candidates.append(QLatin1String("/dev/sr1"));
+    candidates.append(QStringLiteral("/dev/dvd"));
+    candidates.append(QStringLiteral("/dev/dvd0"));
+    candidates.append(QStringLiteral("/dev/dvd1"));
+    candidates.append(QStringLiteral("/dev/scd0"));
+    candidates.append(QStringLiteral("/dev/scd1"));
+    candidates.append(QStringLiteral("/dev/sr0"));
+    candidates.append(QStringLiteral("/dev/sr1"));
 
     // remove non-existing devices
     {
-        const QString ocls = candidates.join(QLatin1String(", "));
+        const QString ocls = candidates.join(QStringLiteral(", "));
 
         {
             QMutableListIterator<QString> i(candidates);
@@ -156,8 +156,8 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         }
 
         if(candidates.isEmpty()) {
-            title = QLatin1String("Drive not found");
-            body = QLatin1String("No such devices ") + ocls;
+            title = QStringLiteral("Drive not found");
+            body = QStringLiteral("No such devices ") + ocls;
             technical.clear();
             return false;
         }
@@ -166,7 +166,7 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
 
     //remove devices that map to the same abscanonpath
     {
-        const QString ocls = candidates.join(QLatin1String(", "));
+        const QString ocls = candidates.join(QStringLiteral(", "));
 
         {
             QSet<QString> seenabs;
@@ -194,8 +194,8 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         }
 
         if(candidates.isEmpty()) {
-            title = QLatin1String("Drive not found");
-            body = QLatin1String("No such devices ") + ocls;
+            title = QStringLiteral("Drive not found");
+            body = QStringLiteral("No such devices ") + ocls;
             technical.clear();
             return false;
         }
@@ -203,7 +203,7 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
 
     // remove devices without a DVD in them
     {
-        const QString ocls = candidates.join(QLatin1String(", "));
+        const QString ocls = candidates.join(QStringLiteral(", "));
         QStringList erracc;
 
         {
@@ -220,16 +220,16 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         }
 
         if(candidates.isEmpty()) {
-            title = QLatin1String("No DVD in drive?");
-            body = QLatin1String("No DVD found in ") + ocls;
-            technical = erracc.join(QLatin1String("\n"));
+            title = QStringLiteral("No DVD in drive?");
+            body = QStringLiteral("No DVD found in ") + ocls;
+            technical = erracc.join(QStringLiteral("\n"));
             return false;
         }
     }
 
     // remove devices where isoinfo fails
     {
-        const QString ocls = candidates.join(QLatin1String(", "));
+        const QString ocls = candidates.join(QStringLiteral(", "));
         QStringList erracc;
 
         {
@@ -246,16 +246,16 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         }
 
         if(candidates.isEmpty()) {
-            title = QLatin1String("Not a proper DVD?");
-            body = QLatin1String("Could not see a proper DVD in ") + ocls;
-            technical = erracc.join(QLatin1String("\n"));
+            title = QStringLiteral("Not a proper DVD?");
+            body = QStringLiteral("Could not see a proper DVD in ") + ocls;
+            technical = erracc.join(QStringLiteral("\n"));
             return false;
         }
     }
 
     // remove devices where the files do not look like a video dvd
     {
-        const QString ocls = candidates.join(QLatin1String(", "));
+        const QString ocls = candidates.join(QStringLiteral(", "));
         QStringList erracc;
 
         {
@@ -272,18 +272,18 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
         }
 
         if(candidates.isEmpty()) {
-            title = QLatin1String("Not a video DVD?");
-            body = QLatin1String("Could not see a video DVD in ") + ocls;
-            technical = erracc.join(QLatin1String("\n"));
+            title = QStringLiteral("Not a video DVD?");
+            body = QStringLiteral("Could not see a video DVD in ") + ocls;
+            technical = erracc.join(QStringLiteral("\n"));
             return false;
         }
     }
 
     // if more than one left, construct error message including titles and bail
     if(candidates.size() > 1) {
-        title = QLatin1String("Found multiple video DVDs");
+        title = QStringLiteral("Found multiple video DVDs");
         QStringList erracc;
-        body = QLatin1String("Found video DVDs\n");
+        body = QStringLiteral("Found video DVDs\n");
 
         foreach(const QString &dev, candidates) {
             QString t;
@@ -296,7 +296,7 @@ bool find_dvddev(QString &retdev, QString &title, QString &body, QString &techni
             }
         }
 
-        technical = erracc.join(QLatin1String("\n"));
+        technical = erracc.join(QStringLiteral("\n"));
         return false;
     }
 
@@ -349,14 +349,14 @@ void add_exe_dir_to_PATH(char const *argv0)
         return;
     }
 
-    const QString new_PATH_s = PATH_l.join(QLatin1String(":"));
+    const QString new_PATH_s = PATH_l.join(QStringLiteral(":"));
     const QByteArray new_PATH_b = new_PATH_s.toLocal8Bit();
     ::setenv("PATH", new_PATH_b.constData(), 1);
     MYDBG("export PATH=%s", new_PATH_b.constData());
 }
 
-static bool did_allow_core = false;
-static QMutex mutex_did_allow_bool;
+static_var bool did_allow_core = false;
+static_var QMutex mutex_did_allow_bool;
 
 static bool get_did_allow_core()
 {
@@ -389,8 +389,8 @@ static void handle_abrt(const QString &cp)
         return;
     }
 
-    VRegExp vr_bad("\\bProcessUnpackaged\\s*=\\s*no\\b");
-    VRegExp vr_good("\\bProcessUnpackaged\\s*=\\s*yes\\b");
+    static_var const VRegularExpression rx_bad("\\bProcessUnpackaged\\s*=\\s*no\\b");
+    static_var const VRegularExpression rx_good("\\bProcessUnpackaged\\s*=\\s*yes\\b");
 
     QTextStream in(&aaspd_o);
 
@@ -416,10 +416,10 @@ static void handle_abrt(const QString &cp)
 
         found++;
 
-        if(proc.contains(vr_good)) {
+        if(proc.contains(rx_good)) {
             MYDBG("%s: %s - good", aaspd_fn, qPrintable(proc));
         }
-        else if(proc.contains(vr_bad)) {
+        else if(proc.contains(rx_bad)) {
             qWarning("%s: %s - will not get core dumps", aaspd_fn, qPrintable(proc));
         }
         else {
@@ -443,6 +443,10 @@ void allow_core()
     }
 
     set_did_allow_core();
+
+    // at this point we have not actually done anything yet, but subsequent callers
+    // or other threads will return, knowing that the current thread will do
+    // whatever is necessary
 
     char const *const cp_fn = "/proc/sys/kernel/core_pattern";
     QFile f((QLatin1String(cp_fn)));
@@ -475,7 +479,7 @@ void allow_core()
     qWarning("could not set ulimit -c unlimited: %s", strerror(errno));
 }
 
-bool definitely_running_from_desktop()
+static bool definitely_running_from_desktop_core()
 {
     if(setand1_getenv("FROMDESKTOP")) {
         MYDBG("FROMDESKTOP set - assuming run from desktop");
@@ -486,13 +490,12 @@ bool definitely_running_from_desktop()
     const pid_t pid = getpid();
 
     for(int fd = 0; fd < 3; fd++) {
-        QString msg = QLatin1String("FD %1: ");
+        QString msg = QStringLiteral("FD %1: ");
         msg = msg.arg(fd);
 
         {
 
-            QLatin1String format("/proc/%1/fd/%2");
-            QString qtpath = QString(format).arg(pid).arg(fd);
+            QString qtpath = QString(QStringLiteral("/proc/%1/fd/%2")).arg(pid).arg(fd);
             char *cpath = strdup(qtpath.toLocal8Bit().constData());
             char readlink_buf[256];
             ssize_t readlink_ret = readlink(cpath, readlink_buf, 256);
@@ -503,23 +506,23 @@ bool definitely_running_from_desktop()
 
             if(readlink_ret == (-1)) {
                 // normal error - see errno
-                readlinkmsg = QLatin1String("could not readlink(%1): %1");
+                readlinkmsg = QStringLiteral("could not readlink(%1): %1");
                 readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(strerror(errno)));
             }
             else if(readlink_ret == 0) {
                 // nothing copied?
-                readlinkmsg = QLatin1String("could not readlink(%1): nothing copied");
+                readlinkmsg = QStringLiteral("could not readlink(%1): nothing copied");
                 readlinkmsg = readlinkmsg.arg(qtpath);
             }
             else if(readlink_ret < 0) {
                 // should never happen
-                readlinkmsg = QLatin1String("could not readlink(%1): unknown error");
+                readlinkmsg = QStringLiteral("could not readlink(%1): unknown error");
                 readlinkmsg = readlinkmsg.arg(qtpath);
             }
             else {
                 // readlink_ret contains number of bytes placed in buffer
                 readlink_buf[readlink_ret] = '\0';
-                readlinkmsg = QLatin1String("readlink(%1)=%2");
+                readlinkmsg = QStringLiteral("readlink(%1)=%2");
                 readlinkmsg = readlinkmsg.arg(qtpath).arg(warn_xbin_2_local_qstring(readlink_buf));
             }
 
@@ -538,8 +541,7 @@ bool definitely_running_from_desktop()
                 found_tty = true;
             }
             else if(isatty_ret != 0) {
-                QLatin1String format("isatty() returned %1 - should only be 1 or 0. Assuming means false");
-                QString isattymsg = QString(format).arg(isatty_ret);
+                QString isattymsg = QString(QStringLiteral("isatty() returned %1 - should only be 1 or 0. Assuming means false")).arg(isatty_ret);
                 msg.append(isattymsg);
             }
             else {
@@ -572,10 +574,40 @@ bool definitely_running_from_desktop()
     }
 }
 
+static_var bool definitely_running_from_desktop_value;
+static_var bool definitely_running_from_desktop_init = false;
+static_var QMutex definitely_running_from_desktop_mutex;
+
+bool definitely_running_from_desktop()
+{
+    {
+        QMutexLocker locker(&definitely_running_from_desktop_mutex);
+
+        if(definitely_running_from_desktop_init) {
+            return definitely_running_from_desktop_value;
+        }
+    }
+
+    bool val = definitely_running_from_desktop_core();
+
+    {
+        QMutexLocker locker(&definitely_running_from_desktop_mutex);
+        definitely_running_from_desktop_value = val;
+        definitely_running_from_desktop_init = true;
+    }
+
+    return val;
+
+}
+
 static bool looks_like_vdpau()
 {
     // if vdpauinfo exists: call it. if return value = 0 - true
-    int ret_vdpauinfo = QProcess::execute(QLatin1String("vdpauinfo"));
+    DeathSigProcess vdpauinfo("vdpauinfo", NULL);
+    vdpauinfo.setReadChannelMode(QProcess::ForwardedChannels);
+    vdpauinfo.start(QStringLiteral("vdpauinfo"), QStringList());
+    vdpauinfo.waitForFinished(-1);
+    const int ret_vdpauinfo = vdpauinfo.exitCode();
 
     if(ret_vdpauinfo == 0) {
         MYDBG("vdpauinfo executed successfully, guessing nvidia");
@@ -590,8 +622,8 @@ static bool looks_like_vdpau()
     }
 
     // call xdpyinfo. grep for NV-CONTROL and NV-GLX
-    QProcess xdpyinfo;
-    xdpyinfo.start(QLatin1String("xdpyinfo"));
+    DeathSigProcess xdpyinfo("xdpyinfo", NULL);
+    xdpyinfo.start(QStringLiteral("xdpyinfo"));
     bool xdpyinfo_succeeded = false;
 
     if(xdpyinfo.waitForStarted()) {
@@ -636,10 +668,28 @@ static bool looks_like_nomachine()
     return false;
 }
 
+static bool looks_like_x2go()
+{
+    const QByteArray X2GO_SESSION = qgetenv("X2GO_SESSION");
+
+    if(X2GO_SESSION.isEmpty()) {
+        return false;
+    }
+
+    const QByteArray X2GO_AGENT_PID = qgetenv("X2GO_AGENT_PID");
+
+    if(X2GO_AGENT_PID.isEmpty()) {
+        return false;
+    }
+
+    MYDBG("found X2GO_SESSION and X2GO_AGENT_PID, assuming x2go");
+    return true;
+}
+
 static bool looks_like_radeon()
 {
-    QProcess glxinfo;
-    glxinfo.start(QLatin1String("glxinfo"));
+    DeathSigProcess glxinfo("glxinfo", NULL);
+    glxinfo.start(QStringLiteral("glxinfo"));
     bool glxinfo_succeeded = false;
 
     if(glxinfo.waitForStarted()) {
@@ -667,8 +717,8 @@ static bool looks_like_radeon()
 
 static bool accelerated_gl()
 {
-    QProcess glxinfo;
-    glxinfo.start(QLatin1String("glxinfo"));
+    DeathSigProcess glxinfo("glxinfo", NULL);
+    glxinfo.start(QStringLiteral("glxinfo"));
     bool glxinfo_succeeded = false;
 
     if(glxinfo.waitForStarted()) {
@@ -698,28 +748,40 @@ QString compute_MP_VO()
 {
     const QString VO_set = get_MP_VO();
 
+    QString ret;
+
     if(!VO_set.isEmpty()) {
-        return VO_set;
+        ret = VO_set;
     }
 
-    if(looks_like_vdpau()) {
-        return QLatin1String("vdpau:hqscaling=1:deint=4,gl:lscale=1:cscale=1,xv,x11");
+    else if(looks_like_vdpau()) {
+        ret = QStringLiteral("vdpau:hqscaling=1:deint=4,gl:lscale=1:cscale=1,xv,x11");
     }
 
-    if(looks_like_nomachine()) {
-        return QLatin1String("x11");
+    else if(looks_like_x2go()) {
+        ret = QStringLiteral("x11");
     }
 
-    if(looks_like_radeon()) {
+    else if(looks_like_nomachine()) {
+        ret = QStringLiteral("x11");
+    }
+
+    else if(looks_like_radeon()) {
         // mpv: lscale=lanczos2:dither-depth=auto:fbo-format=rgb16
-        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
+        ret = QStringLiteral("gl:lscale=1:cscale=1,xv,x11");
     }
 
-    if(accelerated_gl()) {
-        return QLatin1String("gl:lscale=1:cscale=1,xv,x11");
+    else if(accelerated_gl()) {
+        ret = QStringLiteral("gl:lscale=1:cscale=1,xv,x11");
     }
 
-    return QLatin1String("x11");
+    else {
+        ret = QStringLiteral("x11");
+    }
+
+    MYDBG("guessing VO=%s", qPrintable(ret));
+
+    return ret;
 
 }
 
@@ -729,14 +791,14 @@ static QString compute_VDB_RUN_from_HOME(QString *reason)
 
     if(HOME.isEmpty()) {
         if(reason != NULL) {
-            *reason = QLatin1String("HOME directory not found");
+            *reason = QStringLiteral("HOME directory not found");
         }
 
         QString empty;
         return empty;
     }
 
-    HOME.append(QLatin1String("/.vdb"));
+    HOME.append(QStringLiteral("/.vdb"));
     return HOME;
 }
 

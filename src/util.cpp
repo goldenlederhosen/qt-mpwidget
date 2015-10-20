@@ -1,9 +1,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <QDebug>
-#include <QApplication>
-#include <QProcess>
-#include <QWidget>
+#include <QDateTime>
+#include <QString>
+#include <QStringList>
+#include <QByteArray>
 
 #include "util.h"
 #include "gui_overlayquit.h"
@@ -24,25 +25,25 @@ QString dt_2_human(const QDateTime &lastseenon)
     const int daysago = lsnd.daysTo(nowd);
 
     if(daysago == 0) {
-        ds = QLatin1String("today");
+        ds = QStringLiteral("today");
     }
     else if(daysago == 1) {
-        ds = QLatin1String("yesterday");
+        ds = QStringLiteral("yesterday");
     }
     else if(daysago < 6) {
-        ds = lastseenon.toString(QLatin1String("dddd"));
+        ds = lastseenon.toString(QStringLiteral("dddd"));
     }
     else if(nowd.year() != lsnd.year()) {
-        ds = lastseenon.toString(QLatin1String("d MMMM yyyy"));
+        ds = lastseenon.toString(QStringLiteral("d MMMM yyyy"));
     }
     else if(nowd.month() != lsnd.month()) {
-        ds = lastseenon.toString(QLatin1String("d MMMM"));
+        ds = lastseenon.toString(QStringLiteral("d MMMM"));
     }
     else if(nowd.day() != lsnd.day()) {
-        ds = lastseenon.toString(QLatin1String("dddd d MMMM"));
+        ds = lastseenon.toString(QStringLiteral("dddd d MMMM"));
     }
     else {
-        ds = QLatin1String("today");
+        ds = QStringLiteral("today");
     }
 
     return ds;
@@ -61,11 +62,11 @@ QString tlenpos_2_human(double dsec)
     double rsecs = round(dsec);
 
     if(rsecs < 1) {
-        return QLatin1String("00:00:00");
+        return QStringLiteral("00:00:00");
     }
 
     if(rsecs >= SIZE_MAX) {
-        return QLatin1String("99:99:99");
+        return QStringLiteral("99:99:99");
     }
 
     size_t secs = rsecs;
@@ -92,7 +93,7 @@ QString tlenpos_2_human(double dsec)
 
 static inline bool isWhiteSpace(ushort c)
 {
-    return c == ' ' || c == '\t';
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
 QStringList doSplitArgs(const QString &args)
@@ -204,225 +205,24 @@ bool setand1_getenv(char const *const varname)
     return true;
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
-
-void desktopMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &qmsg)
+QString object_2_name(QObject *obj)
 {
-
-#if QT_VERSION >= QT_VERSION_CHECK(5,4,0)
-    const QByteArray bmsg = qFormatLogMessage(type, context, qmsg).toLocal8Bit();
-#else
-    Q_UNUSED(context);
-    const QByteArray bmsg = qmsg.toLocal8Bit();
-#endif
-
-    const char *msg = bmsg.constData();
-
-    switch(type) {
-        case QtDebugMsg: {
-            fprintf(stderr, "Debug: %s\n", msg);
-        }
-        break;
-
-        case QtWarningMsg: {
-            fprintf(stderr, "Warning: %s\n", msg);
-        }
-        break;
-
-        case QtCriticalMsg: {
-            QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = QApplication::focusWidget();
-
-            if(mainw != NULL) {
-                QLatin1String format("Critical: %1");
-                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_crit", qmsg);
-                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->set_ori_focus(foc);
-                oq->start_oq();
-            }
-
-            fprintf(stderr, "Critical: %s\n", msg);
-        }
-        break;
-
-        case QtFatalMsg: {
-            QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = QApplication::focusWidget();
-
-            if(mainw != NULL) {
-                QLatin1String format("Fatal: %1");
-                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_fatal", qmsg);
-                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->set_ori_focus(foc);
-                oq->start_oq();
-            }
-
-            fprintf(stderr, "Fatal: %s\n", msg);
-            exit(1);
-        }
-        break;
-
-        default: {
-            fprintf(stderr, "Unknown output type: %s\n", msg);
-        }
-        break;
-    }
-}
-void commandlineMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &qmsg)
-{
-#if QT_VERSION >= QT_VERSION_CHECK(5,4,0)
-    const QByteArray bmsg = qFormatLogMessage(type, context, qmsg).toLocal8Bit();
-#else
-    Q_UNUSED(context);
-    const QByteArray bmsg = qmsg.toLocal8Bit();
-#endif
-    const char *msg = bmsg.constData();
-
-    switch(type) {
-        case QtDebugMsg: {
-            fprintf(stderr, "Debug: %s\n", msg);
-        }
-        break;
-
-        case QtWarningMsg: {
-            fprintf(stderr, "Warni: %s\n", msg);
-        }
-        break;
-
-        case QtCriticalMsg: {
-            fprintf(stderr, "Criti: %s\n", msg);
-        }
-        break;
-
-        case QtFatalMsg: {
-            fprintf(stderr, "Fatal: %s\n", msg);
-            exit(1);
-        }
-        break;
-
-        default: {
-            fprintf(stderr, "Unknown output type: %s\n", msg);
-        }
-        break;
-    }
-}
-
-
-#else
-
-
-void desktopMessageOutput(QtMsgType type, const char *msg)
-{
-    //const bool isPE=( strstr(msg,"PROGRAMMERERROR")!=NULL );
-
-    switch(type) {
-        case QtDebugMsg: {
-            fprintf(stderr, "Debug: %s\n", msg);
-        }
-        break;
-
-        case QtWarningMsg: {
-            fprintf(stderr, "Warning: %s\n", msg);
-        }
-        break;
-
-        case QtCriticalMsg: {
-            QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = QApplication::focusWidget();
-
-            if(mainw != NULL) {
-                QLatin1String format("Critical: %1");
-                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_crit", qmsg);
-                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->set_ori_focus(foc);
-                oq->start_oq();
-            }
-
-            fprintf(stderr, "Critical: %s\n", msg);
-        }
-        break;
-
-        case QtFatalMsg: {
-            QWidget *mainw = QApplication::activeWindow();
-            QWidget *foc = QApplication::focusWidget();
-
-            if(mainw != NULL) {
-                QLatin1String format("Fatal: %1");
-                QString qmsg = QString(format).arg(warn_xbin_2_local_qstring(msg));
-                OverlayQuit *oq = new OverlayQuit(mainw, "OQ_fatal", qmsg);
-                XCONNECT(oq, SIGNAL(sig_stopped()), oq, SLOT(deleteLater()), QUEUEDCONN);
-                oq->set_ori_focus(foc);
-                oq->start_oq();
-            }
-
-            fprintf(stderr, "Fatal: %s\n", msg);
-            exit(1);
-        }
-        break;
-
-        default: {
-            fprintf(stderr, "Unknown output type: %s\n", msg);
-        }
-        break;
-    }
-}
-void commandlineMessageOutput(QtMsgType type, const char *msg)
-{
-    //const bool isPE=( strstr(msg,"PROGRAMMERERROR")!=NULL );
-
-    switch(type) {
-        case QtDebugMsg: {
-            fprintf(stderr, "Debug: %s\n", msg);
-        }
-        break;
-
-        case QtWarningMsg: {
-            fprintf(stderr, "Warni: %s\n", msg);
-        }
-        break;
-
-        case QtCriticalMsg: {
-            fprintf(stderr, "Criti: %s\n", msg);
-        }
-        break;
-
-        case QtFatalMsg: {
-            fprintf(stderr, "Fatal: %s\n", msg);
-            exit(1);
-        }
-        break;
-
-        default: {
-            fprintf(stderr, "Unknown output type: %s\n", msg);
-        }
-        break;
-    }
-}
-
-#endif // QT4
-
-void set_focus_raise(QWidget *w)
-{
-    w->show();
-    w->raise();
-    w->setFocus(Qt::OtherFocusReason);
-    MYDBG("giving focus to %s", qPrintable(w->objectName()));
-}
-
-QString widget_2_name(QWidget *w)
-{
-    if(w == NULL) {
-        return QLatin1String("<none>");
+    if(obj == NULL) {
+        return QStringLiteral("<none>");
     }
 
-    QString o = w->objectName();
+    QString oN = obj->objectName();
 
-    if(o.isEmpty()) {
-        return QLatin1String("<unnamed>");
+    if(!oN.isEmpty()) {
+        return oN;
     }
 
-    return o;
+    const QMetaObject *mo = obj->metaObject();
+    // FIXME we assume that QMetaObject.className is latin1
+    const char *cN = mo->className();
+    QString ret(QLatin1Char('<'));
+    ret.append(QLatin1String(cN));
+    ret.append(QLatin1Char('>'));
+
+    return ret;
 }

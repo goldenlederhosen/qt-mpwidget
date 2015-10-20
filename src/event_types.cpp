@@ -10,7 +10,7 @@ struct event_type_info_st {
 typedef struct event_type_info_st event_type_info_t;
 
 #define MAXN 218
-static const event_type_info_t events_type_infos[MAXN] = {
+static_var const event_type_info_t events_type_infos[MAXN] = {
     {"None", "Not an event"}, // 0
     {"Timer", "Regular timer events(QTimerEvent)"}, // 1
     {"MouseButtonPress", "Mouse press(QMouseEvent)"}, // 2
@@ -231,10 +231,10 @@ static const event_type_info_t events_type_infos[MAXN] = {
     {"PlatformSurface", "A native platform surface has been created or is about to be destroyed(QPlatformSurfaceEvent)"}, // 217
 };
 
-char const *event_type_2_name(int e)
+char const *event_type_2_name_latin1lit(int e)
 {
     if(e < 0) {
-        PROGRAMMERERROR("event_type_2_name: given invalid type %d", e);
+        PROGRAMMERERROR("event_type_2_name_latin1lit: given invalid type %d", e);
     }
 
     if(e >= 1000 && e <= 65535) {

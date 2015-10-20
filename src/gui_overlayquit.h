@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QObject>
 
+#include "focusstack.h"
+
 QT_BEGIN_NAMESPACE
 class QEvent;
 QT_END_NAMESPACE
@@ -14,25 +16,31 @@ class OverlayQuit: public QWidget
 {
     Q_OBJECT
 
+public:
+    typedef QWidget super;
+
 private:
 
     QWidget *m_quit_button;
     QWidget *m_body;
-    QWidget *m_ori_focus;
+    FocusStack m_focusstack;
     bool evfilter_body;
+
+private:
+    // forbid
+    OverlayQuit();
+    OverlayQuit(const OverlayQuit &);
+    OverlayQuit &operator=(const OverlayQuit &in);
 
 public:
 
     explicit OverlayQuit(QWidget *parent, char const *const in_oname, QWidget *in_body);
     explicit OverlayQuit(QWidget *parent, char const *const in_oname, const QString &text);
-    void start_oq();
-    void set_ori_focus(QWidget *w);
 
 protected:
 
+    virtual bool event(QEvent *event);
     virtual bool eventFilter(QObject *object, QEvent *event);
-    virtual void focusOutEvent(QFocusEvent *event);
-    virtual void focusInEvent(QFocusEvent *event);
 
 signals:
 
@@ -41,8 +49,8 @@ signals:
 public slots:
 
     // from base class and specific key presses
-    void slot_stop();
-    void slot_of_destroyed(QObject *o);
+    void hide_and_return_focus();
+    void show_and_take_focus(QWidget *oldfocusguess);
 
 private:
 

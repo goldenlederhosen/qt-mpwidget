@@ -5,6 +5,31 @@
 
 #include "singleqprocess.h"
 #include "safe_signals.h"
+#include "event_desc.h"
+
+#include <QLoggingCategory>
+#define THIS_SOURCE_FILE_LOG_CATEGORY "SQPSS"
+static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
+#define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
+
+SingleQProcessSingleshot::SingleQProcessSingleshot(QObject *parent, char const *const in_oname_latin1lit):
+    super()
+    , prog(NULL)
+    , started(false)
+    , finished(false)
+    , m_success(false)
+{
+    setObjectName(QLatin1String(in_oname_latin1lit));
+    setParent(parent);
+}
+
+SingleQProcessSingleshot::~SingleQProcessSingleshot()
+{
+    if(prog != NULL) {
+        delete prog;
+        prog = NULL;
+    }
+}
 
 bool SingleQProcessSingleshot::run(const QString &exe, const QStringList &args, int waitmsecs, QString &error)
 {
@@ -53,13 +78,14 @@ bool SingleQProcessSingleshot::start(const QString &exe, const QStringList &args
 void SingleQProcessSingleshot::slot_prog_has_finished(bool success, const QString &errstr, const QString &output, const QString &exe, const QStringList &args)
 {
     if(!started) {
-        PROGRAMMERERROR("got prog finished signal, but start not called?");
+        PROGRAMMERERROR("slot_prog_has_finished: got prog finished signal, but start not called?");
     }
 
     if(finished) {
-        PROGRAMMERERROR("got prog finished signal twice?");
+        PROGRAMMERERROR("slot_prog_has_finished: got prog finished signal twice?");
     }
 
+    MYDBG("slot_prog_has_finished(%s, %s)", success ? "true" : "false", qPrintable(errstr));
     finished = true;
 
     m_success = success;
@@ -84,3 +110,10 @@ bool SingleQProcessSingleshot::wait(int msecs)
     bool ret = prog->waitForFinished(msecs);
     return ret;
 }
+bool SingleQProcessSingleshot::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
+}
+

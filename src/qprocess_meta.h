@@ -7,4 +7,6 @@
 Q_DECLARE_METATYPE(QProcess::ExitStatus)
 Q_DECLARE_METATYPE(QProcess::ProcessError)
 
+char const *ProcessError_2_latin1str(QProcess::ProcessError e);
+
 #endif // QPROCESS_META_H

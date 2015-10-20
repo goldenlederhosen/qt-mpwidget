@@ -14,6 +14,8 @@
 #include <QSvgRenderer>
 #include <QApplication>
 #include <QHash>
+#include <QIcon>
+#include <QToolButton>
 
 #include <unistd.h>
 
@@ -26,7 +28,7 @@
 #include "util.h"
 #include "gui_overlayquit.h"
 #include "safe_signals.h"
-#include "event_types.h"
+#include "event_desc.h"
 
 #include <QLoggingCategory>
 
@@ -40,22 +42,25 @@ static Q_LOGGING_CATEGORY(category_cwng, THIS_SOURCE_FILE_LOG_CATEGORY_CWNG)
 #define CWNGMYDBG(msg, ...) qCDebug(category_cwng, msg, ##__VA_ARGS__)
 
 // give up after that many crashes
-static const unsigned MP_PROCESS_MAX_START_COUNT = 20;
+static_var const unsigned MP_PROCESS_MAX_START_COUNT = 20;
 // accumulate that many output lines
-static const unsigned max_lines_to_accumulate = 10000;
+static_var const unsigned max_lines_to_accumulate = 10000;
 // hide the seek slider after that many milliseconds
-static const qint64 hide_slider_timeout_ms = 2000;
+static_var const qint64 hide_slider_timeout_ms = 2000;
 // how far we seek on cursor, shift-cursor and ctrl-cursor
-static const double seek_distance_1_sec = 10.;
-static const double seek_distance_2_sec = 60.;
-static const double seek_distance_3_sec = 600.;
+static_var const double seek_distance_1_sec = 10.;
+static_var const double seek_distance_2_sec = 60.;
+static_var const double seek_distance_3_sec = 600.;
 
 #define INVOKE_DELAY_MP(X) QTimer::singleShot(0, m_process, SLOT(X));
 
 class MySliderStyle : public QProxyStyle
 {
 public:
-    explicit MySliderStyle(QStyle *baseStyle = 0) : QProxyStyle(baseStyle) {}
+    typedef QProxyStyle super;
+
+public:
+    explicit MySliderStyle(QStyle *baseStyle = 0) : super(baseStyle) {}
 
     int styleHint(QStyle::StyleHint hint, const QStyleOption *option = 0,
                   const QWidget *widget = 0, QStyleHintReturn *returnData = 0) const
@@ -76,14 +81,16 @@ void MpWidget::init_process()
 
     if(m_process != NULL) {
         MYDBG("init_process(): previous process detected, trying to call quit() on it");
-        m_process->disconnect(this);
-        m_process->disconnect();
-        m_process->quit();
-        m_process->deleteLater();
+        MpProcess *copy = m_process;
         m_process = NULL;
+        copy->disconnect(this);
+        copy->disconnect();
+        copy->quit();
+        copy->deleteLater();
     }
 
     if(m_process_startcount > MP_PROCESS_MAX_START_COUNT) {
+        MYDBG("EMIT sig_I_give_up");
         emit sig_I_give_up();
         return;
     }
@@ -113,30 +120,74 @@ void MpWidget::init_process()
 
 }
 
+static QToolButton *make_button(char const *const oN_latin1lit, QWidget *parent, QIcon &icon)
+{
+    QToolButton *but = new QToolButton;
+    but->setObjectName(QLatin1String(oN_latin1lit));
+    but->setParent(parent);
+    but->setIcon(icon);
+    but->setFocusPolicy(Qt::NoFocus);
+    but->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    but->setAutoFillBackground(true);
+    but->setAutoRaise(false);
+    but->setMouseTracking(true);
+    but->installEventFilter(parent);
+
+    {
+        QPalette p = but->palette();
+        p.setColor(QPalette::Window, Qt::white);
+        but->setPalette(p);
+    }
+
+    but->setStyleSheet(QStringLiteral("QToolButton { border: 0px; background-color: white; }"));
+
+    return but;
+}
+
 /*!
  * \brief Constructor
  *
  * \param parent Parent widget
  */
 MpWidget::MpWidget(QWidget *parent, bool fullscreen)
-    : QWidget(parent)
+    : super()
+    , m_fullscreen(fullscreen)
+    , m_process(NULL)
+    , m_process_startcount(0)
+    , m_background(NULL)
     , m_widget(NULL)
+    , m_seek_slider(NULL)
+    , m_sliderlabel(NULL)
+    , m_hourglass(NULL)
+    , m_hourglass_render(NULL)
+    , m_icon_tb_cycle_alang(NULL)
+    , m_icon_tb_cycle_slang(NULL)
+    , m_icon_tb_playpause_dopause(NULL)
+    , m_icon_tb_playpause_doplay(NULL)
+    , m_icon_tb_playpause_inactive(NULL)
+    , m_tb_playpause(NULL)
+    , m_tb_cycle_alang(NULL)
+    , m_tb_cycle_slang(NULL)
+    , m_helpscreen(NULL)
+    , m_focusstack(this)
 {
-    setObjectName(QLatin1String("QMPWidget"));
+    setObjectName(QStringLiteral("QMPWidget"));
+    setParent(parent);
 
-    m_fullscreen = fullscreen;
     m_stay_dead = false;
+#ifdef FOCUSCRAP
     setFocusPolicy(Qt::StrongFocus);
+#endif
+    setFocusPolicy(Qt::NoFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    m_background = new QWidget(this);
+    m_background = new QWidget;
+    m_background->setObjectName(QStringLiteral("QMPWidget_bckgnd"));
+    m_background->setParent(this);
     m_background->setAutoFillBackground(true);
-    m_background->setObjectName(QLatin1String("QMPWidget_background"));
+    m_background->setFocusPolicy(Qt::NoFocus);
 
     m_widget = new MpPlainVideoWidget(this);
-    // do I need these?
-    //m_widget->setAttribute(Qt::WA_DontCreateNativeAncestors);
-    //m_widget->setAttribute(Qt::WA_NativeWindow);
 
     {
         QPalette p = palette();
@@ -144,12 +195,11 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
         m_background->setPalette(p);
     }
 
-    m_process = NULL;
-    m_process_startcount = 0;
     init_process();
 
-    m_seek_slider = new QSlider(Qt::Horizontal, this);
-    m_seek_slider->setObjectName(QLatin1String("QMPWidget_seekslider"));
+    m_seek_slider = new QSlider(Qt::Horizontal);
+    m_seek_slider->setObjectName(QStringLiteral("QMPWidget_sksl"));
+    m_seek_slider->setParent(this);
     m_seek_slider->setTracking(false);
     m_seek_slider->setCursor(Qt::ArrowCursor);
     m_seek_slider->setPageStep(60);
@@ -165,9 +215,11 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     m_seek_slider->setEnabled(false);
     connect_seekslider(true);
     m_seek_slider->setStyle(new MySliderStyle(m_seek_slider->style()));
+    m_seek_slider->setFocusPolicy(Qt::NoFocus);
 
-    m_sliderlabel = new QLabel(this);
-    m_seek_slider->setObjectName(QLatin1String("QMPWidget_seeksliderlabel"));
+    m_sliderlabel = new QLabel;
+    m_sliderlabel->setObjectName(QStringLiteral("QMPWidget_sksllab"));
+    m_sliderlabel->setParent(this);
     m_sliderlabel->setAutoFillBackground(true);
     {
         QPalette p = m_sliderlabel->palette();
@@ -183,21 +235,43 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     m_sliderlabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_sliderlabel->installEventFilter(this);
 
+    m_hide_slider_timer.setObjectName(QStringLiteral("QMPWidget_hd_sli_tim"));
+    m_hide_slider_timer.setParent(this);
     m_hide_slider_timer.setSingleShot(true);
     m_hide_slider_timer.setInterval(hide_slider_timeout_ms);
     XCONNECT(&m_hide_slider_timer, SIGNAL(timeout()), this, SLOT(slot_hidemouse()), QUEUEDCONN);
     slot_hidemouse();
 
-    m_hourglass = new QLabel(this);
-    m_hourglass->setObjectName(QLatin1String("QMPWidget_hourglass"));
+    // Note: these really want to be square. If not-square is required we'd have to be more fancy
+    m_icon_tb_cycle_alang = new QIcon(QStringLiteral(":/application/Mouth.svg"));
+    m_icon_tb_cycle_slang = new QIcon(QStringLiteral(":/application/Subtitles.svg"));
+    m_icon_tb_playpause_dopause = new QIcon(QStringLiteral(":/application/High-contrast-media-playback-pause.svg"));
+    m_icon_tb_playpause_doplay = new QIcon(QStringLiteral(":/application/High-contrast-media-playback-start.svg"));
+    //m_icon_tb_playpause_inactive = new QIcon(QStringLiteral(":/"));
+    m_icon_tb_playpause_inactive = new QIcon();
+
+    m_tb_playpause = make_button("QMPWidget_tb_pp", this, *m_icon_tb_playpause_inactive);
+    XCONNECT(m_tb_playpause, SIGNAL(clicked()), this, SLOT(slot_tb_playpause_clicked()), QUEUEDCONN);
+
+    m_tb_cycle_alang = make_button("QMPWidget_tb_ca", this, *m_icon_tb_cycle_alang);
+    XCONNECT(m_tb_cycle_alang, SIGNAL(clicked()), this, SLOT(slot_tb_cycle_alang_clicked()), QUEUEDCONN);
+
+    m_tb_cycle_slang = make_button("QMPWidget_tb_cs", this, *m_icon_tb_cycle_slang);
+    XCONNECT(m_tb_cycle_slang, SIGNAL(clicked()), this, SLOT(slot_tb_cycle_slang_clicked()), QUEUEDCONN);
+
+    m_hourglass = new QLabel;
+    m_hourglass->setObjectName(QStringLiteral("QMPWidget_hougls"));
+    m_hourglass->setParent(this);
     m_hourglass->move(0, 0);
     m_hourglass->setAutoFillBackground(true);
+    m_hourglass->setTextInteractionFlags(Qt::NoTextInteraction);
     m_hourglass->setFocusPolicy(Qt::NoFocus);
     m_hourglass->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
     m_hourglass->setScaledContents(false);
 
-    m_hourglass_render = new QSvgRenderer(QLatin1String(":/application/Hourglass_2.svg"), this);
-    m_hourglass_render->setObjectName(QLatin1String("QMPWidget_hourglassrender"));
+    m_hourglass_render = new QSvgRenderer(QStringLiteral(":/application/Hourglass_2.svg"));
+    m_hourglass_render->setObjectName(QStringLiteral("QMPWidget_houglasrndr"));
+    m_hourglass_render->setParent(this);
 
     if(!m_hourglass_render->isValid()) {
         PROGRAMMERERROR("could not load hourglass SVG");
@@ -205,7 +279,7 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
 
     slot_updateWidgetSize();
 
-    const QString syntaxhelp = QLatin1String(
+    const QString syntaxhelp = QStringLiteral(
                                    "<table width=\"100%\">"
                                    "<tr><td>P or Space</td><td>Play / Pause</td></tr>"
                                    "<tr><td>Q or Esc</td><td>Stop</td></tr>"
@@ -226,31 +300,41 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
 
     // parent of ui object, parent of body and quit button
     m_helpscreen = new OverlayQuit(this, "OQ_mpwhelp", syntaxhelp);
-    m_helpscreen->set_ori_focus(this);
 
 }
 
 void MpWidget::slot_hidemouse()
 {
+    MYDBG("slot_hidemouse");
+
     if(m_seek_slider->isSliderDown()) {
+        MYDBG("seek slider is down, calling slot_unhidemouse");
         slot_unhidemouse();
         return;
     }
 
     if(m_seek_slider->isVisible()) {
-        MYDBG("hidemouse etc");
+        MYDBG("seek slider is visible, hidemouse etc");
         setCursor(Qt::BlankCursor);
         m_seek_slider->hide();
         m_sliderlabel->hide();
+        m_tb_playpause->hide();
+        m_tb_cycle_alang->hide();
+        m_tb_cycle_slang->hide();
     }
 }
 void MpWidget::slot_unhidemouse()
 {
+    MYDBG("slot_unhidemouse");
+
     if(!m_seek_slider->isVisible()) {
-        MYDBG("showmouse etc");
+        MYDBG("seek slider is not visible, showmouse etc");
         setCursor(Qt::ArrowCursor);
         m_seek_slider->show();
         m_sliderlabel->show();
+        m_tb_playpause->show();
+        m_tb_cycle_alang->show();
+        m_tb_cycle_slang->show();
     }
 
     // will stop it first if already active
@@ -258,16 +342,23 @@ void MpWidget::slot_unhidemouse()
 
 }
 
+bool MpWidget::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
+}
+
 bool MpWidget::eventFilter(QObject *watched, QEvent *event)
 {
-    MYDBG("eventFilter(%s on %s)", event_type_2_name((event->type())), qPrintable(watched->objectName()));
+    log_qeventFilter(category(), watched, event);
 
-    if((watched == m_seek_slider || watched == m_sliderlabel) && event->type() == QEvent::MouseMove) {
+    if((watched == m_seek_slider || watched == m_sliderlabel  || watched == m_tb_playpause || watched ==  m_tb_cycle_alang || watched ==  m_tb_cycle_slang) && event->type() == QEvent::MouseMove) {
         QMouseEvent *me = static_cast<QMouseEvent *>(event);
         mouseMoveEvent(me);
     }
 
-    return QWidget::eventFilter(watched, event);
+    return super::eventFilter(watched, event);
 }
 
 void MpWidget::mouseMoveEvent(QMouseEvent *)
@@ -292,24 +383,38 @@ MpWidget::~MpWidget()
     MYDBG("MpWidget::~MpWidget");
     m_stay_dead = true;
 
-    if(m_process->processState() == QProcess::Running) {
-        m_process->disconnect(this);
-        m_process->quit();
+
+    if(m_process != NULL) {
+        MYDBG("deleting m_process");
+        MpProcess *copy = m_process;
+        m_process = NULL;
+
+        if(copy->processState() == QProcess::Running) {
+            copy->disconnect(this);
+            copy->quit();
+        }
+
+        delete copy;
+    }
+    else {
+        MYDBG("m_process is NULL");
     }
 
-    delete m_process;
-    m_process = NULL;
-
     delete m_background;
+    m_background = NULL;
 
     delete m_widget;
+    m_widget = NULL;
 }
 
 void MpWidget::slot_error_received_at(const QString &s, double lastpos)
 {
     if(m_stay_dead) {
+        MYDBG("slot_error_received_at(%s, %f), and m_stay_dead", qPrintable(s), lastpos);
         return;
     }
+
+    MYDBG("slot_error_received_at(%s, %f)", qPrintable(s), lastpos);
 
     if(lastpos < 0) {
         lastpos = 0.;
@@ -323,11 +428,14 @@ void MpWidget::slot_error_received_at(const QString &s, double lastpos)
     init_process();
     start_process();
 
+    MYDBG("EMIT sig_error_while(%s, %s, %f)", qPrintable(s), qPrintable(url), lastpos);
     emit sig_error_while(s, url, mmi, lastpos);
 }
 
 void MpWidget::slot_load_is_done()
 {
+    MYDBG("slot_load_is_done");
+
     //if(m_fullscreen) {
     //    slot_submit_write_latin1("set_property fullscreen 1");
     //}
@@ -358,6 +466,7 @@ void MpWidget::slot_load_is_done()
     //print_all_info();
 
     if(m_startpos > 0.) {
+        MYDBG("xinvokeMethod m_process.slot_abs_seek_from_keyboard(%s)", m_startpos);
         xinvokeMethod(m_process, "slot_abs_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, m_startpos));
     }
 
@@ -508,11 +617,13 @@ QString MpWidget::sliderlabelstring(double pos) const
 
 void MpWidget::slot_seekslidermoved(int val)
 {
+    MYDBG("slot_seekslidermoved(%d)", val);
     m_sliderlabel->setText(sliderlabelstring(val));
 }
 
 void MpWidget::slot_mpSeekedTo(double val)
 {
+    MYDBG("slot_mpSeekedTo(%f)", val);
     adjust_slider_to(val);
     slot_unhidemouse();
 }
@@ -541,7 +652,7 @@ QSize MpWidget::sizeHint() const
         return m_mediaInfo.size();
     }
 
-    return QWidget::sizeHint();
+    return super::sizeHint();
 }
 
 /*!
@@ -564,13 +675,13 @@ void MpWidget::start_process()
     QStringList args = m_args;
 
     if(!m_preferred_alangs.isEmpty() && m_preferred_alangs.first() != QLatin1String("FIRST")) {
-        args += QLatin1String("-alang");
-        args += m_preferred_alangs.join(QLatin1String(","));
+        args += QStringLiteral("-alang");
+        args += m_preferred_alangs.join(QStringLiteral(","));
     }
 
     if(!m_preferred_slangs.isEmpty() && m_preferred_slangs.first() != QLatin1String("FIRST")) {
-        args += QLatin1String("-slang");
-        args += m_preferred_slangs.join(QLatin1String(","));
+        args += QStringLiteral("-slang");
+        args += m_preferred_slangs.join(QStringLiteral(","));
     }
 
     m_process->start_process(xwinid, args);
@@ -609,6 +720,7 @@ void MpWidget::load(const QString &url, const MpMediaInfo &mmi, const double sta
 
     m_currently_playing = url;
 
+    MYDBG("xinvokeMethod m_process.slot_load(%s)", qPrintable(url));
     xinvokeMethod(m_process, "slot_load", QUEUEDCONN, Q_ARG(QString, url));
 }
 
@@ -659,16 +771,61 @@ void MpWidget::testKillMplayer()
 void MpWidget::slot_show_helpscreen()
 {
     // parent of ui object, parent of body and quit button
-    MYDBG("showing helpscreen");
-    m_helpscreen->start_oq();
+    MYDBG("slot_show_helpscreen");
+    m_helpscreen->show_and_take_focus(this);
     XCONNECT(m_helpscreen, SIGNAL(sig_stopped()), this, SLOT(slot_set_not_showing_help()), QUEUEDCONN);
     // switch on mouse cursor?
 }
 
 void MpWidget::slot_set_not_showing_help()
 {
-    MYDBG("help screen is going away");
+    MYDBG("slot_set_not_showing_help - help screen is going away");
     m_helpscreen->hide();
+}
+
+void MpWidget::toggle_playpause()
+{
+    if(state() == MpState::PlayingState) {
+        MYDBG("INVOKE_DELAY_MP slot_pause");
+        INVOKE_DELAY_MP(slot_pause());
+    }
+    else if(state() == MpState::PausedState) {
+        MYDBG("INVOKE_DELAY_MP slot_play");
+        INVOKE_DELAY_MP(slot_play());
+    }
+    else {
+        MYDBG("toggle_playpause: not playing or paused, ignoring");
+    }
+}
+
+void MpWidget::cycle_alang()
+{
+    if(m_forbidden_alangs.isEmpty()) {
+        const QString cmd = QStringLiteral("switch_audio");
+        MYDBG("xinvokeMethod m_process.slot_submit_write(%s)", qPrintable(cmd));
+        xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
+        (void)m_process->set_assume_next_aid();
+    }
+    else {
+        int next_aid = m_process->find_next_alang_not_in(m_forbidden_alangs);
+
+        if(next_aid >= -10) {
+            QString cmd = QString(QStringLiteral("switch_audio %1")).arg(next_aid);
+            MYDBG("xinvokeMethod m_process.slot_submit_write(%s)", qPrintable(cmd));
+            xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
+            m_process->set_assume_aid(next_aid);
+        }
+    }
+
+    const QString cmd2 = QStringLiteral("get_property switch_audio");
+    MYDBG("xinvokeMethod m_process.slot_submit_write(%s)", qPrintable(cmd2));
+    xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd2));
+}
+void MpWidget::cycle_slang()
+{
+    const QString cmd = QStringLiteral("sub_select");
+    MYDBG("xinvokeMethod m_process.slot_submit_write(%s)", qPrintable(cmd));
+    xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
 }
 
 /*!
@@ -681,6 +838,8 @@ void MpWidget::slot_set_not_showing_help()
  */
 void MpWidget::keyPressEvent(QKeyEvent *event)
 {
+    log_qevent(category(), this, event);
+
     bool accept = true;
 
     switch(event->key()) {
@@ -688,12 +847,13 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         case Qt::Key_F1: {
             if(event->modifiers() == Qt::NoModifier) {
                 MYDBG("   = F1");
-                MYDBG("   EMIT help()");
 
                 if(state() == MpState::PlayingState) {
+                    MYDBG("INVOKE_DELAY_MP slot_pause");
                     INVOKE_DELAY_MP(slot_pause());
                 }
 
+                MYDBG("scheduling slot_show_helpscreen in %d msec", 1000);
                 QTimer::singleShot(1000, this, SLOT(slot_show_helpscreen()));
 
                 return;
@@ -703,21 +863,15 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
 
         case Qt::Key_P:
         case Qt::Key_Space: {
-            if(state() == MpState::PlayingState) {
-                INVOKE_DELAY_MP(slot_pause());
-            }
-            else if(state() == MpState::PausedState) {
-                INVOKE_DELAY_MP(slot_play());
-            }
-
-            INVOKE_DELAY(slot_unhidemouse());
+            MYDBG("got P or SPACE, toggline play/pause");
+            toggle_playpause();
         }
 
         break;
 
         case Qt::Key_Q:
         case Qt::Key_Escape: {
-            MYDBG("got keyboard Q / Esc, invoking stop()");
+            MYDBG("got keyboard Q / Esc, INVOKE_DELAY_MP slot_stop");
             INVOKE_DELAY_MP(slot_stop());
         }
         break;
@@ -725,12 +879,15 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         case Qt::Key_Left: {
 
             if(event->modifiers() == Qt::NoModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", -seek_distance_1_sec - 5);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, -seek_distance_1_sec - 5));
             }
             else if(event->modifiers() == Qt::ShiftModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", -seek_distance_2_sec - 5);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, -seek_distance_2_sec - 5));
             }
             else if(event->modifiers() == Qt::ControlModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", -seek_distance_3_sec - 5);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, -seek_distance_3_sec - 5));
             }
         }
@@ -740,12 +897,15 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         case Qt::Key_Right: {
 
             if(event->modifiers() == Qt::NoModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", seek_distance_1_sec);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, seek_distance_1_sec));
             }
             else if(event->modifiers() == Qt::ShiftModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", seek_distance_2_sec);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, seek_distance_2_sec));
             }
             else if(event->modifiers() == Qt::ControlModifier) {
+                MYDBG("xinvokeMethod m_process.slot_rel_seek_from_keyboard(%f)", seek_distance_3_sec);
                 xinvokeMethod(m_process, "slot_rel_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, seek_distance_3_sec));
             }
 
@@ -755,6 +915,7 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
 
         case Qt::Key_Up: {
             if(event->modifiers() == Qt::NoModifier) {
+                MYDBG("INVOKE_DELAY_MP slot_speed_up");
                 INVOKE_DELAY_MP(slot_speed_up());
             }
         }
@@ -763,6 +924,7 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
 
         case Qt::Key_Down: {
             if(event->modifiers() == Qt::NoModifier) {
+                MYDBG("INVOKE_DELAY_MP slot_slow_down");
                 INVOKE_DELAY_MP(slot_slow_down());
             }
         }
@@ -770,35 +932,21 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         break;
 
         case Qt::Key_Home: {
+            MYDBG("xinvokeMethod m_process.slot_abs_seek_from_keyboard(0)");
             xinvokeMethod(m_process, "slot_abs_seek_from_keyboard", QUEUEDCONN, Q_ARG(double, 00));
         }
         break;
 
         case Qt::Key_J:
         case Qt::Key_K: {
-            const QString cmd = QLatin1String("sub_select");
-            xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
+            MYDBG("got j or k, cycling subtitle");
+            cycle_slang();
         }
         break;
 
         case Qt::Key_NumberSign: {
-            if(m_forbidden_alangs.isEmpty()) {
-                const QString cmd = QLatin1String("switch_audio");
-                xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
-                (void)m_process->set_assume_next_aid();
-            }
-            else {
-                int next_aid = m_process->find_next_alang_not_in(m_forbidden_alangs);
-
-                if(next_aid >= -10) {
-                    QString cmd = QString(QLatin1String("switch_audio %1")).arg(next_aid);
-                    xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
-                    m_process->set_assume_aid(next_aid);
-                }
-            }
-
-            const QString cmd2 = QLatin1String("get_property switch_audio");
-            xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd2));
+            MYDBG("got #, cycling audio");
+            cycle_alang();
         }
         break;
 
@@ -816,11 +964,11 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
         case Qt::Key_F7: {
             if(event->modifiers() == Qt::NoModifier) {
                 MYDBG("   = F7");
-                MYDBG("   EMIT recordbad()");
+                MYDBG("   EMIT sig_recordbad()");
                 BadMovieRecord_t info;
-                info[QLatin1String("abs_movfn")] = m_currently_playing;
+                info[QStringLiteral("abs_movfn")] = m_currently_playing;
                 emit sig_recordbad(info);
-                MYDBG("   invoking stop");
+                MYDBG("   INVOKE_DELAY_MP slot_stop");
                 INVOKE_DELAY_MP(slot_stop());
                 return;
             }
@@ -846,6 +994,30 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
     }
 
     event->setAccepted(accept);
+    MYDBG("INVOKE_DELAY slot_unhidemouse");
+    INVOKE_DELAY(slot_unhidemouse());
+}
+
+void MpWidget::slot_tb_playpause_clicked()
+{
+    MYDBG("slot_tb_playpause_clicked()");
+    toggle_playpause();
+    MYDBG("INVOKE_DELAY slot_unhidemouse");
+    INVOKE_DELAY(slot_unhidemouse());
+}
+void MpWidget::slot_tb_cycle_alang_clicked()
+{
+    MYDBG("slot_tb_cycle_alang_clicked()");
+    cycle_alang();
+    MYDBG("INVOKE_DELAY slot_unhidemouse");
+    INVOKE_DELAY(slot_unhidemouse());
+}
+void MpWidget::slot_tb_cycle_slang_clicked()
+{
+    MYDBG("slot_tb_cycle_slang_clicked()");
+    cycle_slang();
+    MYDBG("INVOKE_DELAY slot_unhidemouse");
+    INVOKE_DELAY(slot_unhidemouse());
 }
 
 /*!
@@ -855,9 +1027,9 @@ void MpWidget::keyPressEvent(QKeyEvent *event)
  *
  * \param event Resize event
  */
-void MpWidget::resizeEvent(QResizeEvent * /* event */)
+void MpWidget::resizeEvent(QResizeEvent *event)
 {
-    MYDBG("resizeEvent");
+    log_qevent(category(), this, event);
     slot_updateWidgetSize();
 }
 
@@ -931,11 +1103,27 @@ QRect MpWidget::compute_widget_new_geom() const
 
 void MpWidget::slot_updateWidgetSize()
 {
+    MYDBG("slot_updateWidgetSize");
 
     const int sliderlw = this->width() / 5;
     const int sliderh = this->height() / 20;
-    m_seek_slider->setGeometry(sliderlw, this->height() - sliderh, this->width() - sliderlw - 5, sliderh);
-    m_sliderlabel->setGeometry(0, this->height() - sliderh, sliderlw, sliderh);
+
+    const int tb_h = sliderh;
+    const int tb_w = sliderh;
+
+    m_tb_playpause  ->setIconSize(QSize(tb_w - 2, tb_h - 2));
+    m_tb_cycle_alang->setIconSize(QSize(tb_w - 2, tb_h - 2));
+    m_tb_cycle_slang->setIconSize(QSize(tb_w - 2, tb_h - 2));
+
+    // x y w h
+    const int toolbar_y = this->height() - sliderh;
+    m_sliderlabel   ->setGeometry(0                          , toolbar_y, sliderlw                              , sliderh);
+    m_seek_slider   ->setGeometry(sliderlw                   , toolbar_y, this->width() - sliderlw - 3 * tb_w   , sliderh);
+
+    m_tb_playpause  ->setGeometry(this->width() - 3 * tb_w   , toolbar_y, tb_w                                  , sliderh);
+    m_tb_cycle_alang->setGeometry(this->width() - 2 * tb_w   , toolbar_y, tb_w                                  , sliderh);
+    m_tb_cycle_slang->setGeometry(this->width() - 1 * tb_w   , toolbar_y, tb_w                                  , sliderh);
+
     QFont slfont = m_sliderlabel->font();
     const int newpixelsize = qMax(8, this->height() / 35);
     slfont.setPixelSize(newpixelsize);
@@ -1001,17 +1189,18 @@ void MpWidget::slot_updateWidgetSize()
 
 void MpWidget::setVolume_abs(int volume)
 {
-    const QString cmd = QString(QLatin1String("volume %1 1")).arg(volume);
+    const QString cmd = QString(QStringLiteral("volume %1 1")).arg(volume);
     submit_write(cmd);
 }
 
 void MpWidget::setVolume_rel(int rvolume)
 {
-    const QString cmd = QString(QLatin1String("volume %1")).arg(rvolume);
+    const QString cmd = QString(QStringLiteral("volume %1")).arg(rvolume);
+    MYDBG("xinvokeMethod m_process.slot_submit_write(%s)", qPrintable(cmd));
     xinvokeMethod(m_process, "slot_submit_write", QUEUEDCONN, Q_ARG(const QString &, cmd));
 }
 
-static const char *mpproperties[] = {
+static_var const char *mpproperties_latin1lit[] = {
     "fullscreen",
     "width",
     "height",
@@ -1053,14 +1242,14 @@ static const char *mpproperties[] = {
 void MpWidget::print_all_info()
 {
     for(int i = 0; i < 1000; i++) {
-        char const *const prop = mpproperties[i];
+        char const *const prop_latin1lit = mpproperties_latin1lit[i];
 
-        if(prop == NULL || prop[0] == '\0') {
+        if(prop_latin1lit == NULL || prop_latin1lit[0] == '\0') {
             break;
         }
 
-        QString cmd = QLatin1String("pausing_keep_force get_property %1");
-        cmd = cmd.arg(QLatin1String(prop));
+        QString cmd = QStringLiteral("pausing_keep_force get_property %1");
+        cmd = cmd.arg(QLatin1String(prop_latin1lit));
         submit_write(cmd);
     }
 
@@ -1083,7 +1272,7 @@ bool MpWidget::try_alang(const QString &alang)
     }
 
     MYDBG("atrack %d is in %s", aid, qPrintable(alang));
-    QString cmd = QString(QLatin1String("switch_audio %1")).arg(aid);
+    QString cmd = QString(QStringLiteral("switch_audio %1")).arg(aid);
     submit_write(cmd);
     m_process->set_assume_aid(aid);
     submit_write_latin1("get_property switch_audio");
@@ -1106,7 +1295,7 @@ bool MpWidget::try_slang(const QString &slang)
     }
 
     MYDBG("strack %d is in %s", sid, qPrintable(slang));
-    QString cmd = QString(QLatin1String("sub_demux %1")).arg(sid);
+    QString cmd = QString(QStringLiteral("sub_demux %1")).arg(sid);
     submit_write(cmd);
     //slot_submit_write_latin1("get_property sub");
     return true;
@@ -1130,14 +1319,14 @@ ${NAME}       Expand to the value of the property NAME.
 */
 //void MpWidget::slot_osd_show_property_text(const QString &format, size_t duration_ms, size_t level)
 //{
-//    QString f = QLatin1String("pausing_keep osd_show_property_text \"%1\" %2 %3");
+//    QString f = QStringLiteral("pausing_keep osd_show_property_text \"%1\" %2 %3");
 //    f = f.arg(format).arg(duration_ms).arg(level);
 //    slot_submit_write(f);
 //}
 
 //void MpWidget::slot_osd_show_text(const QString &str, size_t duration_ms, size_t level)
 //{
-//    QString f = QLatin1String("pausing_keep osd_show_text \"%1\" %2 %3");
+//    QString f = QStringLiteral("pausing_keep osd_show_text \"%1\" %2 %3");
 //    f = f.arg(str).arg(duration_ms).arg(level);
 //    slot_submit_write(f);
 //}
@@ -1148,7 +1337,17 @@ void MpWidget::slot_mpStateChanged(MpState oldstate, MpState newstate)
         return;
     }
 
-    MYDBG("state changed from %s to %s", convert_MpState_2_asciidesc(oldstate), convert_MpState_2_asciidesc(newstate));
+    MYDBG("slot_mpStateChanged(from %s to %s)", convert_MpState_2_asciidesc(oldstate), convert_MpState_2_asciidesc(newstate));
+
+    if(newstate == MpState::PlayingState) {
+        m_tb_playpause->setIcon(*m_icon_tb_playpause_dopause);
+    }
+    else if(newstate == MpState::PausedState) {
+        m_tb_playpause->setIcon(*m_icon_tb_playpause_doplay);
+    }
+    else {
+        m_tb_playpause->setIcon(*m_icon_tb_playpause_inactive);
+    }
 
     if(newstate == MpState::PlayingState) {
         const double len = m_mediaInfo.has_length() ? m_mediaInfo.length() : 100.00;
@@ -1172,7 +1371,9 @@ void MpWidget::slot_mpStateChanged(MpState oldstate, MpState newstate)
         m_widget->show();
     }
 
+    MYDBG("INVOKE_DELAY slot_updateWidgetSize");
     INVOKE_DELAY(slot_updateWidgetSize());
+    MYDBG("EMIT sig_stateChanged(%s, %s)", convert_MpState_2_asciidesc(oldstate), convert_MpState_2_asciidesc(newstate));
     emit sig_stateChanged(oldstate, newstate);
 }
 
@@ -1196,8 +1397,21 @@ void MpWidget::adjust_slider_to(double position)
 void MpWidget::slot_mpStreamPositionChanged(double position)
 {
     if(!m_seek_slider->isSliderDown()) {
+        MYDBG("slot_mpStreamPositionChanged(%f) and slider is not down", position);
         adjust_slider_to(position);
     }
 }
 
 
+void MpWidget::show_and_take_focus(QWidget *oldfocusguess)
+{
+    MYDBG("show_and_take_focus");
+    m_focusstack.show_and_take_focus(NULL, oldfocusguess);
+    slot_updateWidgetSize();
+
+}
+void MpWidget::hide_and_return_focus()
+{
+    MYDBG("hide_and_return_focus");
+    m_focusstack.hide_and_return_focus();
+}

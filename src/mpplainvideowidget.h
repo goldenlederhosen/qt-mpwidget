@@ -11,10 +11,22 @@ class MpPlainVideoWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit MpPlainVideoWidget(QWidget *parent = 0);
+    typedef QWidget super;
+
+private:
+    // forbid
+    MpPlainVideoWidget();
+    MpPlainVideoWidget(const MpPlainVideoWidget &);
+    MpPlainVideoWidget &operator=(const MpPlainVideoWidget &in);
+
+public:
+    explicit MpPlainVideoWidget(QWidget *parent);
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
     virtual QPaintEngine *paintEngine() const;
 #endif
+
+protected:
+    virtual bool event(QEvent *event);
 
 };
 

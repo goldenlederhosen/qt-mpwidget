@@ -1,6 +1,8 @@
 #include "screensavermanager.h"
 #include "dbus.h"
 #include "xsetscreensaver.h"
+#include "singleqprocesssingleshot.h"
+#include "event_desc.h"
 
 #include <QTimer>
 #include <QDBusMessage>
@@ -12,19 +14,23 @@ static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 #define MYDBG(msg, ...) qCDebug(category, msg, ##__VA_ARGS__)
 
 // when we have the screensaver disabled, simulate activity every N seconds (the Inhibit interface does not always work)
-static const int screensaver_simulate_activity_every_seconds = 30;
+static_var const int screensaver_simulate_activity_every_seconds = 30;
+
+static_var const int timeout_xscreensaver_command_msec = 3000;
 
 ScreenSaverManager::ScreenSaverManager(QObject *parent, predicate_t func, void *payload):
-    QObject(parent),
+    super(),
     m_screensaver_currently_enabled(NoYesUnknown::Unknown),
     m_sscookie(0),
     m_pwcookie(0),
     m_sscookie_valid(false),
     m_pwcookie_valid(false),
     m_screensaver_should_be_active(func),
-    m_screensaver_should_be_active_payload(payload)
+    m_screensaver_should_be_active_payload(payload),
+    m_found_own_xscreensaver(NoYesUnknown::Unknown)
 {
-    setObjectName(QLatin1String("ScreenSaverManager"));
+    setObjectName(QStringLiteral("ScreenSaverManager"));
+    setParent(parent);
 }
 
 ScreenSaverManager::~ScreenSaverManager()
@@ -32,29 +38,90 @@ ScreenSaverManager::~ScreenSaverManager()
     enable();
 }
 
+bool ScreenSaverManager::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
+}
+
 bool ScreenSaverManager::screensaver_should_be_active() const
 {
     return (*m_screensaver_should_be_active)(m_screensaver_should_be_active_payload);
 }
 
-void ScreenSaverManager::slot_screensaver_simulate_activity()
+static NoYesUnknown find_own_xscreensaver()
 {
-    if(screensaver_should_be_active()) {
-        MYDBG("screensaver_simulate_activity: screensaver should be active, exiting");
+    // xscreensaver-command -version
+    const QString exe = QStringLiteral("xscreensaver-command");
+    QStringList xcargs;
+    xcargs << QStringLiteral("-version");
+
+    SingleQProcessSingleshot sqpss(NULL, "SQPS_xscreensaver-command-version");
+    QString error;
+
+    const bool succ = sqpss.run(exe, xcargs, timeout_xscreensaver_command_msec, error);
+
+    if(succ) {
+        MYDBG("found xscreensaver: %s %s", qPrintable(sqpss.get_output().trimmed()), qPrintable(sqpss.get_errstr().trimmed()));
+        return NoYesUnknown::Yes;
+    }
+    else {
+        MYDBG("could not find xscreensaver: %s", qPrintable(error.trimmed()));
+        return NoYesUnknown::No;
+    }
+
+}
+
+// pretend that there has just been user activity
+void ScreenSaverManager::xscreensaver_command_deactivate()
+{
+    if(m_found_own_xscreensaver == NoYesUnknown::Unknown) {
+        m_found_own_xscreensaver = find_own_xscreensaver();
+    }
+
+    if(m_found_own_xscreensaver == NoYesUnknown::No) {
         return;
     }
 
-    MYDBG("screensaver_simulate_activity: screensaver should be inhibited, simulating and re-raising");
+    const QString exe = QStringLiteral("xscreensaver-command");
+    QStringList xcargs;
+    xcargs << QStringLiteral("-deactivate");
+
+    SingleQProcessSingleshot sqpss(NULL, "SQPS_xscreensaver-command-deactivate");
+    QString error;
+
+    const bool succ = sqpss.run(exe, xcargs, timeout_xscreensaver_command_msec, error);
+
+    if(succ) {
+        MYDBG("xscreensaver-command -deactivate successfull: %s %s", qPrintable(sqpss.get_output().trimmed()), qPrintable(sqpss.get_errstr().trimmed()));
+    }
+    else {
+        MYDBG("xscreensaver-command -deactivate unsuccessfull: %s", qPrintable(error.trimmed()));
+    }
+}
+
+void ScreenSaverManager::slot_screensaver_simulate_activity()
+{
+    if(screensaver_should_be_active()) {
+        MYDBG("slot_screensaver_simulate_activity: screensaver should be active, exiting");
+        return;
+    }
+
+    MYDBG("slot_screensaver_simulate_activity: screensaver should be inhibited, simulating and re-raising");
 
     {
-        QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("/ScreenSaver"),
-                         QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("SimulateUserActivity"));
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("/ScreenSaver"),
+                         QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("SimulateUserActivity"));
 
         (void) verbose_dbus(m);
     }
 
+    xscreensaver_command_deactivate();
+
+    MYDBG("scheduling slot_screensaver_simulate_activity in %d sec", screensaver_simulate_activity_every_seconds);
     QTimer::singleShot(1000 * screensaver_simulate_activity_every_seconds, this, SLOT(slot_screensaver_simulate_activity()));
 }
 
@@ -74,20 +141,20 @@ void ScreenSaverManager::enable()
     // org.freedesktop.PowerManagement /org/freedesktop/PowerManagement/Inhibit UnInhibit cookie
 
     if(m_pwcookie_valid) {
-        QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.PowerManagement"),
-                         QLatin1String("/org/freedesktop/PowerManagement"),
-                         QLatin1String("org.freedesktop.PowerManagement.Inhibit"),
-                         QLatin1String("UnInhibit"));
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.PowerManagement"),
+                         QStringLiteral("/org/freedesktop/PowerManagement"),
+                         QStringLiteral("org.freedesktop.PowerManagement.Inhibit"),
+                         QStringLiteral("UnInhibit"));
         m << m_pwcookie;
         (void) verbose_dbus(m);
     }
 
 
     if(m_sscookie_valid) {
-        QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("/ScreenSaver"),
-                         QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("UnInhibit"));
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("/ScreenSaver"),
+                         QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("UnInhibit"));
         m << m_sscookie;
         (void) verbose_dbus(m);
     }
@@ -101,20 +168,20 @@ void ScreenSaverManager::disable()
         return;
     }
 
-    MYDBG("disabling screensaver, setting simulateactivity timer");
+    MYDBG("disabling screensaver, scheduling slot_screensaver_simulate_activity in %d sec", screensaver_simulate_activity_every_seconds);
     QTimer::singleShot(1000 * screensaver_simulate_activity_every_seconds, this, SLOT(slot_screensaver_simulate_activity()));
 
     xsetscreensaver_disable();
 
     {
         // service path interface method
-        QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("/ScreenSaver"),
-                         QLatin1String("org.freedesktop.ScreenSaver"),
-                         QLatin1String("Inhibit")
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("/ScreenSaver"),
+                         QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("Inhibit")
                                                        );
         m << qApp->applicationName();
-        m << QLatin1String("because I told you so");
+        m << QStringLiteral("because I told you so");
         QDBusMessage response = verbose_dbus(m);
 
         m_sscookie = 0;
@@ -147,12 +214,12 @@ void ScreenSaverManager::disable()
     }
 
     {
-        QDBusMessage m = QDBusMessage::createMethodCall(QLatin1String("org.freedesktop.PowerManagement"),
-                         QLatin1String("/org/freedesktop/PowerManagement"),
-                         QLatin1String("org.freedesktop.PowerManagement.Inhibit"),
-                         QLatin1String("Inhibit"));
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.PowerManagement"),
+                         QStringLiteral("/org/freedesktop/PowerManagement"),
+                         QStringLiteral("org.freedesktop.PowerManagement.Inhibit"),
+                         QStringLiteral("Inhibit"));
         m << qApp->applicationName();
-        m << QLatin1String("I said so");
+        m << QStringLiteral("I said so");
         QDBusMessage response = verbose_dbus(m);
 
         m_pwcookie = 0;
@@ -184,6 +251,7 @@ void ScreenSaverManager::disable()
         }
     }
 
+    xscreensaver_command_deactivate();
 
     m_screensaver_currently_enabled = NoYesUnknown::No;
 

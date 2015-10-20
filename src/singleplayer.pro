@@ -22,7 +22,6 @@ HEADERS       = \
     capslock.h \
     dbus.h \
     xsetscreensaver.h \
-    vregexp.h \
     asynckillproc.h \
     asyncreadfile.h \
     asyncreadfile_child.h \
@@ -33,7 +32,13 @@ HEADERS       = \
     encoding.h \
     remote_local.h \
     fstypemagics.h \
-    event_types.h
+    event_types.h \
+    vregularexpression.h \
+    deathsigprocess.h \
+    focusstack.h \
+    event_desc.h \
+    logging.h \
+    circularbuffer.h
 SOURCES       = \
     mainwindow.cpp \
     util.cpp \
@@ -59,12 +64,19 @@ SOURCES       = \
     config.cpp \
     encoding.cpp \
     remote_local.cpp \
-    event_types.cpp
+    event_types.cpp \
+    deathsigprocess.cpp \
+    focusstack.cpp \
+    event_desc.cpp \
+    logging.cpp \
+    qprocess_meta.cpp
 
 QT+=svg dbus
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets 
 DEFINES += QT_NO_CAST_FROM_ASCII QT_USE_QSTRINGBUILDER QT_USE_FAST_CONCATENATION QT_USE_FAST_OPERATOR_PLUS QT_NO_CAST_FROM_BYTEARRAY
 LIBS+=-lX11
+
+DEFINES += static_var=static
 
 # install
 target.path = $$[QT_INSTALL_EXAMPLES]/widgets/singleplayer

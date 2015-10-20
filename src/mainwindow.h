@@ -16,9 +16,12 @@ QT_END_NAMESPACE
 class MpWidget;
 class CropDetector;
 
-class PlayerWindow : public QMainWindow {
+class PlayerWindow : public QMainWindow
+{
     Q_OBJECT
 
+public:
+    typedef QMainWindow super;
 private:
 
     QStringList mfns;
@@ -30,12 +33,18 @@ private:
     QStringList palangs;
     QStringList pslangs;
     bool might_get_remote_files;
+private:
+    // forbid
+    PlayerWindow();
+    PlayerWindow(const PlayerWindow &);
+    PlayerWindow &operator=(const PlayerWindow &in);
 public:
     PlayerWindow(bool in_fullscreen, const QStringList &in_mfns, const QStringList &in_falangs, const QStringList &in_palangs, const QStringList &in_pslangs);
-    ~PlayerWindow();
+    virtual ~PlayerWindow();
 
 protected:
     virtual void resizeEvent(QResizeEvent *event);
+    virtual bool event(QEvent *event);
 
 private slots:
 

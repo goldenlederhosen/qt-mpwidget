@@ -8,17 +8,25 @@
 #include <QStringList>
 
 #include "qprocess_meta.h"
+#include "deathsigprocess.h"
 
 class SingleQProcess : public QObject
 {
     Q_OBJECT
+public:
+    typedef QObject super;
 private:
-    QProcess *proc;
+    DeathSigProcess *proc;
     QByteArray accout;
     QByteArray next;
     QString curr_exe;
     QStringList curr_args;
     void close();
+private:
+    // forbid
+    SingleQProcess();
+    SingleQProcess(const SingleQProcess &);
+    SingleQProcess &operator=(const SingleQProcess &in);
 public:
     explicit SingleQProcess(QObject *parent, const QString &in_oname);
     virtual ~SingleQProcess();
@@ -36,6 +44,10 @@ public slots:
     // from the QProcess
     void slot_child_has_finished(int, QProcess::ExitStatus);
     void slot_accumulate_all_out();
+
+protected:
+    virtual bool event(QEvent *event);
+
 };
 
 

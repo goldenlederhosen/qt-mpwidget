@@ -7,7 +7,7 @@
 #include <QApplication>
 
 #include "safe_signals.h"
-#include "event_types.h"
+#include "event_desc.h"
 
 #include <QLoggingCategory>
 #define THIS_SOURCE_FILE_LOG_CATEGORY "OQ"
@@ -17,19 +17,22 @@ static Q_LOGGING_CATEGORY(category, THIS_SOURCE_FILE_LOG_CATEGORY)
 void OverlayQuit::init(QWidget *in_body)
 {
     m_body = in_body;
-    m_body->hide();
     m_body->setParent(this);
+#ifdef FOCUSCRAP
     m_body->setFocusPolicy(Qt::StrongFocus);
+#endif
+    m_body->setFocusPolicy(Qt::NoFocus);
 
     {
-        QPushButton *q = new QPushButton(QLatin1String("QUIT"), this);
-        XCONNECT(q, SIGNAL(clicked()), this, SLOT(slot_stop()), QUEUEDCONN);
-        XCONNECT(q, SIGNAL(pressed()), this, SLOT(slot_stop()), QUEUEDCONN);
+        QPushButton *q = new QPushButton(QStringLiteral("QUIT"));
+        q->setObjectName(objectName() + QStringLiteral("_qbutton"));
+        q->setParent(this); // do this after the objectname, so the signal knows who this is
+        XCONNECT(q, SIGNAL(clicked()), this, SLOT(hide_and_return_focus()), QUEUEDCONN);
+        XCONNECT(q, SIGNAL(pressed()), this, SLOT(hide_and_return_focus()), QUEUEDCONN);
         q->setFlat(true);
         m_quit_button = q;
     }
 
-    m_quit_button->setObjectName(objectName() + QLatin1String("_qbutton"));
     {
         QPalette Pal(m_quit_button->palette());
         Pal.setColor(QPalette::Button, Qt::red);
@@ -40,11 +43,17 @@ void OverlayQuit::init(QWidget *in_body)
         f.setPointSize(f.pointSize() * 2);
         m_quit_button->setFont(f);
     }
-    m_quit_button->hide();
     m_quit_button->setAutoFillBackground(true);
-    m_quit_button->setFocusPolicy(Qt::StrongFocus);
 
+#ifdef FOCUSCRAP
+    m_quit_button->setFocusPolicy(Qt::StrongFocus);
+#endif
+    m_quit_button->setFocusPolicy(Qt::NoFocus);
+
+#ifdef FOCUSCRAP
     this->setFocusPolicy(Qt::StrongFocus);
+#endif
+    this->setFocusPolicy(Qt::NoFocus);
 
     setAutoFillBackground(true);
     hide();
@@ -53,24 +62,30 @@ void OverlayQuit::init(QWidget *in_body)
 }
 
 
-OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname, QWidget *in_body) :
-    QWidget(parent)
-    , m_ori_focus(NULL)
+OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname_latin1lit, QWidget *in_body) :
+    super()
+    , m_focusstack(this)
 {
-    setObjectName(QLatin1String(in_oname));
+    setObjectName(QLatin1String(in_oname_latin1lit));
+    setParent(parent); // do this after the objectname, so the signal knows who this is
     evfilter_body = false;
+    MYDBG("creating with body %s", qPrintable(object_2_name(in_body)));
     init(in_body);
 }
 
-OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname, const QString &text) :
-    QWidget(parent)
-    , m_ori_focus(NULL)
+OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname_latin1lit, const QString &text) :
+    super()
+    , m_focusstack(this)
 {
-    setObjectName(QLatin1String(in_oname));
+    setObjectName(QLatin1String(in_oname_latin1lit));
+    setParent(parent); // do this after the objectname, so the signal knows who this is
     evfilter_body = true;
 
-    QTextEdit *te = new QTextEdit(text, this);
-    te->setObjectName(objectName() + QLatin1String("_TE"));
+    MYDBG("creating with text \"%s...\"", qPrintable(text.left(20)));
+
+    QTextEdit *te = new QTextEdit(text);
+    te->setObjectName(objectName() + QStringLiteral("_TE"));
+    te->setParent(this); // do this after the objectname, so the signal knows who this is
     te->setReadOnly(true);
     te->setTextInteractionFlags(Qt::NoTextInteraction);
     te->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -83,6 +98,13 @@ OverlayQuit::OverlayQuit(QWidget *parent, char const *const in_oname, const QStr
     init(te);
 }
 
+bool OverlayQuit::event(QEvent *event)
+{
+    log_qevent(category(), this, event);
+
+    return super::event(event);
+}
+
 // true - no further processing
 // false - pass through
 bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
@@ -92,12 +114,17 @@ bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
         return false;
     }
 
-    MYDBG("eventFilter(%s) on %s", event_type_2_name(event->type()), qPrintable(object->objectName()));
+    log_qeventFilter(category(), object, event);
 
     char const *oisdesc = NULL;
 
     if(object == m_body) {
-        oisdesc = "object is body";
+        if(evfilter_body) {
+            oisdesc = "object is body and we handle its Q/Esc/... events";
+        }
+        else {
+            oisdesc = "object is body and handling its own events";
+        }
     }
     else if(object == this) {
         oisdesc = "object is this";
@@ -106,11 +133,12 @@ bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
         oisdesc = "object is quit button";
     }
     else {
-        MYDBG("eF: object is not a part of me, pass through");
+        MYDBG("eventFilter: object %s is not a part of me, pass through. Thats kind of weird...", qPrintable(object_2_name(object)));
         return false;
     }
 
     if(event->type() != QEvent::KeyPress) {
+        // only print msg if it is not a mousemove to avoid spamming
         if(event->type() != QEvent::MouseMove) {
             MYDBG("eventFilter: %s, event is not a keypress, pass through", oisdesc);
         }
@@ -120,76 +148,44 @@ bool OverlayQuit::eventFilter(QObject *object, QEvent *event)
 
     QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 
+    // object is body, this or qbutton, event is keyboard
+
     if(keyEvent->key() == Qt::Key_Escape) {
-        MYDBG("eventFilter: %s, ESC key detected", oisdesc);
-        slot_stop();
+        MYDBG("eventFilter: %s, ESC key detected. calling hide_and_return_focus", oisdesc);
+        hide_and_return_focus();
         return true;
     }
 
-    if(!evfilter_body) {
+    if(object == m_body && !evfilter_body) {
         MYDBG("eventFilter: %s, not filtering events for body, pass through", oisdesc);
         return false;
     }
 
+    // the object is not the body; or it is the body and that body is a TextEdit
+
     if(keyEvent->key() == Qt::Key_Q) {
-        MYDBG("eventFilter: %s, filtering events for body, detected Q", oisdesc);
-        slot_stop();
+        MYDBG("eventFilter: %s, filtering events for body, detected Q. calling hide_and_return_focus", oisdesc);
+        hide_and_return_focus();
         return true;
     }
 
     if(keyEvent->key() == Qt::Key_Enter) {
-        MYDBG("eventFilter: %s, filtering events for body, detected Enter", oisdesc);
-        slot_stop();
+        MYDBG("eventFilter: %s, filtering events for body, detected Enter. calling hide_and_return_focus", oisdesc);
+        hide_and_return_focus();
         return true;
     }
 
     if(keyEvent->key() == Qt::Key_Return) {
-        MYDBG("eventFilter: %s, filtering events for body, detected Return", oisdesc);
-        slot_stop();
+        MYDBG("eventFilter: %s, filtering events for body, detected Return. calling hide_and_return_focus", oisdesc);
+        hide_and_return_focus();
         return true;
     }
 
     MYDBG("eventFilter: %s, filtering events for body, unknown key detected, pass through", oisdesc);
-    // return QWidget::eventFilter(object, event)
+    // return super::eventFilter(object, event)
     return false;
 }
 
-void OverlayQuit::focusOutEvent(QFocusEvent *event)
-{
-    QWidget *fw = QApplication::focusWidget();
-
-    if(this->isVisible()) {
-        if(fw == NULL) {
-            MYDBG("window losing focus, but this widget visible");
-        }
-        else {
-            if(evfilter_body) {
-                MYDBG("losing focus, but visible - regrabbing. Current focus %s. giving focus to quit button", qPrintable(widget_2_name(fw)));
-                m_quit_button->setFocus(Qt::OtherFocusReason);
-            }
-            else {
-                MYDBG("losing focus, but visible - regrabbing. Current focus %s. giving focus to body", qPrintable(widget_2_name(fw)));
-                m_body->setFocus(Qt::OtherFocusReason);
-            }
-        }
-    }
-    else {
-        if(fw == NULL) {
-            MYDBG("window losing focus and this widget hidden");
-        }
-        else {
-            MYDBG("losing focus and hidden - its okay. Current focus %s", qPrintable(widget_2_name(fw)));
-        }
-
-        QWidget::focusOutEvent(event);
-    }
-}
-
-void OverlayQuit::focusInEvent(QFocusEvent *event)
-{
-    MYDBG("received focus");
-    QWidget::focusInEvent(event);
-}
 void OverlayQuit::do_resize()
 {
     QWidget const *mainw = QApplication::activeWindow();
@@ -221,64 +217,41 @@ void OverlayQuit::do_resize()
     m_body->move(0, qh);
 }
 
-void OverlayQuit::slot_of_destroyed(QObject *o)
+void OverlayQuit::hide_and_return_focus()
 {
-    if(o == m_ori_focus) {
-        MYDBG("deleting ori focus widget %s", qPrintable(o->objectName()));
-        m_ori_focus = NULL;
-    }
-}
+    MYDBG("hide_and_return_focus: hide etc");
 
-void OverlayQuit::set_ori_focus(QWidget *w)
-{
-    if(w == NULL) {
-        return;
-    }
-
-    m_ori_focus = w;
-    XCONNECT(m_ori_focus, SIGNAL(destroyed(QObject *)), this, SLOT(slot_of_destroyed(QObject *)));
-}
-
-void OverlayQuit::slot_stop()
-{
-    MYDBG("hide");
-    hide();
+    m_focusstack.hide_and_return_focus();
 
     m_body->removeEventFilter(this);
     m_quit_button->removeEventFilter(this);
     this->removeEventFilter(this);
 
-    if(m_ori_focus != NULL) {
-        MYDBG("giving focus back to orifinal %s", qPrintable(m_ori_focus->objectName()));
-        set_focus_raise(m_ori_focus);
-    }
-
+    MYDBG("EMIT sig_stopped");
     emit sig_stopped();
 }
 
-void OverlayQuit::start_oq()
+void OverlayQuit::show_and_take_focus(QWidget *oldfocusguess)
 {
-    MYDBG("show");
+    MYDBG("show_and_take_focus: install eventFilters, show, raise etc");
+
+    QWidget *newfocus;
+
+    if(evfilter_body) {
+        MYDBG("giving focus to quit button");
+        newfocus = this;
+    }
+    else {
+        MYDBG("giving focus to body");
+        newfocus = m_body;
+    }
+
+    m_focusstack.show_and_take_focus(newfocus, oldfocusguess);
 
     m_body->installEventFilter(this);
     m_quit_button->installEventFilter(this);
     this->installEventFilter(this);
 
     do_resize();
-    show();
-    raise();
-    m_body->raise();
-    m_quit_button->raise();
-    m_body->show();
-    m_quit_button->show();
-
-    if(evfilter_body) {
-        MYDBG("giving focus to quit button");
-        m_quit_button->setFocus(Qt::OtherFocusReason);
-    }
-    else {
-        MYDBG("giving focus to body");
-        m_body->setFocus(Qt::OtherFocusReason);
-    }
 
 }
