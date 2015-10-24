@@ -18,9 +18,6 @@ void OverlayQuit::init(QWidget *in_body)
 {
     m_body = in_body;
     m_body->setParent(this);
-#ifdef FOCUSCRAP
-    m_body->setFocusPolicy(Qt::StrongFocus);
-#endif
     m_body->setFocusPolicy(Qt::NoFocus);
 
     {
@@ -45,14 +42,8 @@ void OverlayQuit::init(QWidget *in_body)
     }
     m_quit_button->setAutoFillBackground(true);
 
-#ifdef FOCUSCRAP
-    m_quit_button->setFocusPolicy(Qt::StrongFocus);
-#endif
     m_quit_button->setFocusPolicy(Qt::NoFocus);
 
-#ifdef FOCUSCRAP
-    this->setFocusPolicy(Qt::StrongFocus);
-#endif
     this->setFocusPolicy(Qt::NoFocus);
 
     setAutoFillBackground(true);

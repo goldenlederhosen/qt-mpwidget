@@ -306,7 +306,8 @@ void PlayerWindow::MP_finished(bool success, const QString &errstr)
 
     MYDBG("queuing next movie");
 
-    MP->show_and_take_focus(this);
+    MP->show();
+    MP->raise();
 
     activate_this_window();
 
@@ -375,7 +376,9 @@ void PlayerWindow::MP_window_correct()
 {
     MP->resize(this->size());
     MP->move(0, 0);
-    MP->show_and_take_focus(this);
+    // should be that way, but just to be sure...
+    MP->show();
+    MP->raise();
 }
 
 void PlayerWindow::slot_cdDetected(bool success, QString msg, QString mfn)

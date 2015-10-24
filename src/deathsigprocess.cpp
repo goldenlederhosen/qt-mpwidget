@@ -3,6 +3,7 @@
 #include "event_desc.h"
 #include "safe_signals.h"
 #include "qprocess_meta.h"
+#include "asynckillproc.h"
 
 #include <sys/prctl.h>
 #include <string.h>
@@ -25,6 +26,17 @@ DeathSigProcess::DeathSigProcess(const QString &oName, QObject *parent)
     init(oName, parent);
 }
 
+DeathSigProcess::~DeathSigProcess()
+{
+    if(this->state() == QProcess::Running) {
+        const qint64 pid = this->processId();
+        MYDBG("%s destructor: killing PID %ld", qPrintable(objectName()), (long)pid);
+        const QString oN = objectName();
+        this->close();
+        async_kill_process(pid, "destructor", qPrintable(oN));
+    }
+}
+
 void DeathSigProcess::init(const QString &oName, QObject *parent)
 {
     setObjectName(oName);
@@ -45,44 +57,44 @@ void DeathSigProcess::init(const QString &oName, QObject *parent)
 void DeathSigProcess::slot_dbg_error(QProcess::ProcessError error)
 {
     char const *const s = ProcessError_2_latin1str(error);
-    MYDBG("%s error(%s)", qPrintable(objectName()), s);
+    MYDBG("%s %ld error(%s)", qPrintable(objectName()), (long)(this->processId()), s);
 }
 void DeathSigProcess::slot_dbg_finished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    MYDBG("%s finished(%d, %s)", qPrintable(objectName()), exitCode, exitStatus == QProcess::NormalExit ? "normalexit" : "crashexit");
+    MYDBG("%s %ld finished(%d, %s)", qPrintable(objectName()), (long)(this->processId()), exitCode, exitStatus == QProcess::NormalExit ? "normalexit" : "crashexit");
 }
 void DeathSigProcess::slot_dbg_readyReadStandardError()
 {
-    MYDBG("%s readyReadStandardError()", qPrintable(objectName()));
+    MYDBG("%s %ld readyReadStandardError()", qPrintable(objectName()), (long)(this->processId()));
 }
 void DeathSigProcess::slot_dbg_readyReadStandardOutput()
 {
-    // MYDBG("%s readyReadStandardOutput()", qPrintable(objectName()));
+    // MYDBG("%s %ld readyReadStandardOutput()", qPrintable(objectName()));
 }
 void DeathSigProcess::slot_dbg_started()
 {
-    MYDBG("%s started()", qPrintable(objectName()));
+    MYDBG("%s %ld started()", qPrintable(objectName()), (long)(this->processId()));
 }
 void DeathSigProcess::slot_dbg_stateChanged(QProcess::ProcessState newState)
 {
-    MYDBG("%s stateChanged(%s)", qPrintable(objectName()), newState == QProcess::NotRunning ? "NotRunning" : (newState == QProcess::Starting ? "Starting" : "Running"));
+    MYDBG("%s %ld stateChanged(%s)", qPrintable(objectName()), (long)(this->processId()), newState == QProcess::NotRunning ? "NotRunning" : (newState == QProcess::Starting ? "Starting" : "Running"));
 }
 
 void DeathSigProcess::slot_dbg_aboutToClose()
 {
-    MYDBG("%s aboutToClose()", qPrintable(objectName()));
+    MYDBG("%s %ld aboutToClose()", qPrintable(objectName()), (long)(this->processId()));
 }
 void DeathSigProcess::slot_dbg_bytesWritten(qint64 bytes)
 {
-    MYDBG("%s bytesWritten(%ld)", qPrintable(objectName()), (long)bytes);
+    MYDBG("%s %ld bytesWritten(%ld)", qPrintable(objectName()), (long)(this->processId()), (long)bytes);
 }
 void DeathSigProcess::slot_dbg_readChannelFinished()
 {
-    MYDBG("%s readChannelFinished()", qPrintable(objectName()));
+    MYDBG("%s %ld readChannelFinished()", qPrintable(objectName()), (long)(this->processId()));
 }
 void DeathSigProcess::slot_dbg_readyRead()
 {
-    // MYDBG("%s readyRead()", qPrintable(objectName()));
+    // MYDBG("%s %ld readyRead()", qPrintable(objectName()));
 }
 bool DeathSigProcess::event(QEvent *event)
 {
@@ -96,9 +108,9 @@ void DeathSigProcess::setupChildProcess()
     int ret = prctl(PR_SET_PDEATHSIG, 9);
 
     if(ret == 0) {
-        fprintf(stderr, THIS_SOURCE_FILE_LOG_CATEGORY " %s prctl(PR_SET_PDEATHSIG, 9) = success\n", qPrintable(objectName()));
+        fprintf(stderr, THIS_SOURCE_FILE_LOG_CATEGORY " %s %ld prctl(PR_SET_PDEATHSIG, 9) = success\n", qPrintable(objectName()), (long)(this->processId()));
     }
     else {
-        fprintf(stderr, THIS_SOURCE_FILE_LOG_CATEGORY " %s prctl(PR_SET_PDEATHSIG, 9) = %d (%s)\n", qPrintable(objectName()), ret, strerror(errno));
+        fprintf(stderr, THIS_SOURCE_FILE_LOG_CATEGORY " %s %ld prctl(PR_SET_PDEATHSIG, 9) = %d (%s)\n", qPrintable(objectName()), (long)(this->processId()), ret, strerror(errno));
     }
 }

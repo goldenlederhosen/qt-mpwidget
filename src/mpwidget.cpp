@@ -175,9 +175,6 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     setParent(parent);
 
     m_stay_dead = false;
-#ifdef FOCUSCRAP
-    setFocusPolicy(Qt::StrongFocus);
-#endif
     setFocusPolicy(Qt::NoFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -249,6 +246,7 @@ MpWidget::MpWidget(QWidget *parent, bool fullscreen)
     m_icon_tb_playpause_doplay = new QIcon(QStringLiteral(":/application/High-contrast-media-playback-start.svg"));
     //m_icon_tb_playpause_inactive = new QIcon(QStringLiteral(":/"));
     m_icon_tb_playpause_inactive = new QIcon();
+    // FIXME: check that it can find those paths
 
     m_tb_playpause = make_button("QMPWidget_tb_pp", this, *m_icon_tb_playpause_inactive);
     XCONNECT(m_tb_playpause, SIGNAL(clicked()), this, SLOT(slot_tb_playpause_clicked()), QUEUEDCONN);
@@ -753,7 +751,7 @@ void MpWidget::testKillMplayer()
         return;
     }
 
-    Q_PID mppid = m_process->pid();
+    pid_t mppid = m_process->processId();
 
     if(mppid < 1) {
         MYDBG("testKillMplayer called but the MpProcess object does not have a unix process under it currently");

@@ -19,7 +19,7 @@ private:
 public:
     DeathSigProcess(char const *const oName_latin1, QObject *parent);
     DeathSigProcess(const QString &oName, QObject *parent);
-    virtual ~DeathSigProcess() {}
+    virtual ~DeathSigProcess();
 protected:
     virtual bool event(QEvent *event);
     virtual void setupChildProcess();

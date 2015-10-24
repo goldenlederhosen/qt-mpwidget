@@ -185,13 +185,13 @@ public:
     {
         return m_curr_state;
     }
-    Q_PID pid() const
+    qint64 processId() const
     {
         if(m_proc == NULL) {
             return -1;
         }
 
-        return m_proc->pid();
+        return m_proc->processId();
     }
     const QString &videoOutput() const
     {

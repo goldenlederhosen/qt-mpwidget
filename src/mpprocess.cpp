@@ -229,7 +229,7 @@ void MpProcess::quit()
     }
     else {
 
-        pid_t qpid = m_proc->pid();
+        pid_t qpid = m_proc->processId();
 
         if(m_proc->state() != QProcess::NotRunning) {
             force_cmd(QStringLiteral("quit"));

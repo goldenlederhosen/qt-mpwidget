@@ -32,10 +32,12 @@ void FocusStack::set_ori_focus(QWidget *w)
 
 void FocusStack::show_and_take_focus(QWidget *newfocus, QWidget *oldfocusguess)
 {
-    MYDBG("%s show_and_take_focus", qPrintable(object_2_name(m_targetwidget)));
-
-    if(newfocus == NULL) {
+    if(newfocus == NULL || newfocus == m_targetwidget) {
+        MYDBG("%s show_and_take_focus", qPrintable(object_2_name(m_targetwidget)));
         newfocus = m_targetwidget;
+    }
+    else {
+        MYDBG("%s show_and_take_focus(%s)", qPrintable(object_2_name(m_targetwidget)), qPrintable(object_2_name(newfocus)));
     }
 
     const bool newvisib = newfocus->isVisible();
